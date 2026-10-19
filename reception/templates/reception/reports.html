@@ -1,0 +1,29 @@
+{% extends "reception/base.html" %}
+
+{% block title %}Reports - {{ CLINIC_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="panel" style="margin-bottom:18px"><div class="panel-body" style="padding:16px">
+    <form method="get" style="display:flex;gap:12px;align-items:end">
+      <label>Start<input type="date" name="start" value="{{ start_date|date:'Y-m-d' }}" style="display:block;margin-top:5px"></label>
+      <label>End<input type="date" name="end" value="{{ end_date|date:'Y-m-d' }}" style="display:block;margin-top:5px"></label>
+      <button type="submit">Apply</button>
+      <a href="{% url 'reports_export' %}?start={{ start_date|date:'Y-m-d' }}&end={{ end_date|date:'Y-m-d' }}">Download Excel</a>
+    </form>
+  </div></div>
+  <h1>Reports <small style="font-size:13px;font-weight:400;color:#637282">{{ start_date|date:"d M Y" }} to {{ end_date|date:"d M Y" }}</small></h1>
+  <div class="cards">
+    <div class="card"><div class="card-label">Visits</div><div class="card-value">{{ visit_count }}</div></div>
+    <div class="card"><div class="card-label">Receipts</div><div class="card-value">{{ receipt_count }}</div></div>
+    <div class="card"><div class="card-label">Revenue</div><div class="card-value money">TZS {{ revenue_total }}</div></div>
+    <div class="card"><div class="card-label">Voids</div><div class="card-value">{{ voided_count }} / TZS {{ voided_amount }}</div></div>
+  </div>
+  <p><strong>Reprints:</strong> {{ reprint_count }}</p>
+  <div class="panels">
+    <section class="panel"><div class="panel-head"><h2>Revenue per day</h2></div><div class="panel-body"><table><thead><tr><th>Date</th><th>Revenue</th></tr></thead><tbody>{% for row in daily_rows %}<tr><td>{{ row.day|date:"d M Y" }}</td><td>TZS {{ row.revenue }}</td></tr>{% empty %}<tr><td colspan="2" class="empty">No revenue in this period.</td></tr>{% endfor %}</tbody></table></div></section>
+    <section class="panel"><div class="panel-head"><h2>Revenue per service</h2></div><div class="panel-body"><table><thead><tr><th>Service</th><th>Count</th><th>Revenue</th></tr></thead><tbody>{% for row in service_rows %}<tr><td>{{ row.name }}</td><td>{{ row.count }}</td><td>TZS {{ row.revenue }}</td></tr>{% empty %}<tr><td colspan="3" class="empty">No services in this period.</td></tr>{% endfor %}</tbody></table></div></section>
+    <section class="panel"><div class="panel-head"><h2>Revenue per receptionist</h2></div><div class="panel-body"><table><thead><tr><th>Receptionist</th><th>Receipts</th><th>Revenue</th></tr></thead><tbody>{% for row in receptionist_rows %}<tr><td>{{ row.received_by__username }}</td><td>{{ row.count }}</td><td>TZS {{ row.revenue }}</td></tr>{% empty %}<tr><td colspan="3" class="empty">No revenue in this period.</td></tr>{% endfor %}</tbody></table></div></section>
+    <section class="panel"><div class="panel-head"><h2>Receipt gaps</h2></div><div class="panel-body">{% if receipt_gaps %}<p style="padding:0 16px">Missing: {% for number in receipt_gaps %}{{ number }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% else %}<div class="empty">No receipt gaps found.</div>{% endif %}</div></section>
+  </div>
+  <section class="panel" style="margin-top:18px"><div class="panel-head"><h2>Day closes</h2></div><div class="panel-body"><table><thead><tr><th>Date</th><th>Expected</th><th>Counted</th><th>Difference</th><th>Closed by</th></tr></thead><tbody>{% for close in day_closes %}<tr{% if close.difference %} style="color:#962c2c;font-weight:600"{% endif %}><td>{{ close.date|date:"d M Y" }}</td><td>TZS {{ close.expected_cash }}</td><td>TZS {{ close.counted_cash }}</td><td>TZS {{ close.difference }}</td><td>{{ close.closed_by.get_username }}</td></tr>{% empty %}<tr><td colspan="5" class="empty">No day closes in this period.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

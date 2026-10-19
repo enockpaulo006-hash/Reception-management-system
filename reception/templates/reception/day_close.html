@@ -1,0 +1,31 @@
+{% extends "reception/base.html" %}
+
+{% block title %}Close day - {{ CLINIC_NAME }}{% endblock %}
+
+{% block content %}
+  <div class="panel" style="max-width:650px">
+    <div class="panel-head"><h1 style="margin:0">Close day</h1><span>{{ today|date:"d M Y" }}</span></div>
+    <div class="panel-body" style="padding:18px">
+      {% if day_close %}
+        <p>This day was closed by {{ day_close.closed_by.get_username }} at {{ day_close.closed_at|date:"H:i" }}.</p>
+        <table>
+          <tr><td>Expected cash</td><td><strong>TZS {{ day_close.expected_cash }}</strong></td></tr>
+          <tr><td>Counted cash</td><td><strong>TZS {{ day_close.counted_cash }}</strong></td></tr>
+          <tr><td>Difference (counted - expected)</td><td><strong>TZS {{ day_close.difference }}</strong></td></tr>
+        </table>
+        {% if day_close.note %}<p><strong>Note:</strong> {{ day_close.note }}</p>{% endif %}
+      {% else %}
+        <p>{{ receipt_count }} receipt{{ receipt_count|pluralize }} recorded today. {{ voided_count }} void{{ voided_count|pluralize:"s" }}.</p>
+        {% if is_owner %}<p><strong>Expected cash: TZS {{ expected_cash }}</strong></p>{% else %}<p>Count the cash before entering the amount below.</p>{% endif %}
+        <form method="post">
+          {% csrf_token %}
+          <label for="counted-cash" style="display:block;margin:15px 0 5px;font-weight:600">Counted cash (TZS)</label>
+          <input id="counted-cash" name="counted_cash" inputmode="numeric" pattern="[0-9]+" required style="width:100%;padding:8px;border:1px solid #bfcbd5;border-radius:4px">
+          <label for="close-note" style="display:block;margin:15px 0 5px;font-weight:600">Note (optional)</label>
+          <input id="close-note" name="note" maxlength="255" style="width:100%;padding:8px;border:1px solid #bfcbd5;border-radius:4px">
+          <button type="submit" style="margin-top:16px">Save day close</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

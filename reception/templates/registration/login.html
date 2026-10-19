@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in — {{ CLINIC_NAME }}</title>
+  <style>
+    html,body{height:100%;margin:0;overscroll-behavior:none} body{display:grid;place-items:center;background:#eef2f6;color:#182532;font-family:"Segoe UI",Tahoma,Arial,sans-serif} .login{width:360px;padding:30px;background:#fff;border:1px solid #dce3ea;border-radius:7px;box-shadow:0 4px 18px rgba(29,48,65,.1)} h1{margin:0 0 7px;font-size:22px} p{color:#637282;margin:0 0 24px} label{display:block;margin:15px 0 6px;font-weight:600} input{width:100%;box-sizing:border-box;padding:9px;border:1px solid #bfcbd5;border-radius:4px;font:inherit} button{width:100%;margin-top:22px;padding:10px;border:0;border-radius:4px;background:#1769aa;color:#fff;font:inherit;font-weight:600;cursor:pointer}.errorlist{margin:0;padding:9px 11px;list-style:none;border:1px solid #edb8b8;border-radius:4px;background:#fbe6e6;color:#8d2525}.helptext{display:none}
+  </style>
+</head>
+<body oncontextmenu="return false;">
+  <form class="login" method="post">
+    {% csrf_token %}
+    <h1>{{ CLINIC_NAME }}</h1><p>Sign in to continue.</p>
+    {% if form.non_field_errors %}{{ form.non_field_errors }}{% endif %}
+    {% if messages %}{% for message in messages %}<p style="color:#175c31;margin:0 0 12px">{{ message }}</p>{% endfor %}{% endif %}
+    <label for="id_username">Username</label>{{ form.username }}
+    <label for="id_password">Password</label>{{ form.password }}
+    <button type="submit">Sign in</button>
+  </form>
+</body>
+</html>

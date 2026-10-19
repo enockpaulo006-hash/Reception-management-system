@@ -1,0 +1,24 @@
+{% extends "reception/base.html" %}
+
+{% block title %}Users - {{ CLINIC_NAME }}{% endblock %}
+
+{% block content %}
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px"><h1 style="margin:0">Users</h1><a href="{% url 'user_new' %}">New receptionist</a></div>
+  <section class="panel">
+    <div class="panel-body">
+      <table>
+        <thead><tr><th>Username</th><th>Full name</th><th>Role</th><th>Status</th><th>Last login</th><th>Actions</th></tr></thead>
+        <tbody>{% for listed_user in users %}
+          <tr>
+            <td>{{ listed_user.username }}</td>
+            <td>{{ listed_user.get_full_name|default:"—" }}</td>
+            <td>{{ listed_user.role }}</td>
+            <td>{% if listed_user.is_active %}Active{% else %}Inactive{% endif %}</td>
+            <td>{% if listed_user.last_login %}{{ listed_user.last_login|date:"d M Y H:i" }}{% else %}Never{% endif %}</td>
+            <td><a href="{% url 'user_password_reset' listed_user.pk %}">Reset password</a> <form method="post" action="{% url 'user_toggle' listed_user.pk %}" style="display:inline">{% csrf_token %}<button type="submit">{% if listed_user.is_active %}Deactivate{% else %}Activate{% endif %}</button></form></td>
+          </tr>
+        {% empty %}<tr><td colspan="6" class="empty">No users found.</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}
