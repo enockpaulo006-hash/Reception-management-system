@@ -1,3 +1,4 @@
+
 from functools import wraps
 
 from django.contrib.auth.decorators import login_required
@@ -13,7 +14,10 @@ def is_owner(user):
     return bool(
         user
         and user.is_authenticated
-        and (user.is_superuser or user.groups.filter(name="Owner").exists())
+        and (
+            user.is_superuser
+            or user.groups.filter(name="Owner").exists()
+        )
     )
 
 
@@ -29,40 +33,105 @@ def owner_required(view):
 
 
 def log(user, action, detail):
-    return AuditLog.objects.create(user=user, action=action, detail=detail)
+    return AuditLog.objects.create(
+        user=user,
+        action=action,
+        detail=detail,
+    )
 
 
 def next_receipt_no():
     """Reserve and return the next receipt number."""
     with transaction.atomic():
-        counter, _ = ReceiptCounter.objects.select_for_update().get_or_create(pk=1)
+        counter, _ = ReceiptCounter.objects.select_for_update().get_or_create(
+            pk=1
+        )
         counter.last_number += 1
         counter.save(update_fields=["last_number"])
         return counter.last_number
 
 
 def record_payment(visit, services, user):
-    """Create a payment and receipt lines from the current server-side price list."""
+    """
+    Record a payment while enforcing the daily payment sequence.
+
+    Rules:
+    - Consultation must be paid before laboratory tests.
+    - Consultation can only be paid once per visit per local day.
+    - Laboratory tests can be paid multiple times after consultation.
+    - Consultation and laboratory tests must use separate receipts.
+    """
     selected = list(services)
+
     if not selected:
-        raise ValidationError("At least one service is required.")
+        raise ValidationError("Select at least one service.")
 
     service_ids = [service.pk for service in selected]
+
     if any(service_id is None for service_id in service_ids):
         raise ValidationError("Each selected service must be saved.")
 
-    with transaction.atomic():
-        current_services = Service.objects.in_bulk(service_ids)
-        if len(current_services) != len(set(service_ids)):
-            raise ValidationError("A selected service does not exist.")
+    if len(service_ids) != len(set(service_ids)):
+        raise ValidationError("A service cannot be selected more than once.")
 
-        priced_services = [current_services[service_id] for service_id in service_ids]
+    with transaction.atomic():
+        current_services = Service.objects.filter(
+            pk__in=service_ids,
+            active=True,
+        )
+
+        service_map = {
+            service.pk: service
+            for service in current_services
+        }
+
+        if len(service_map) != len(service_ids):
+            raise ValidationError(
+                "One or more selected services are unavailable."
+            )
+
+        priced_services = [
+            service_map[service_id]
+            for service_id in service_ids
+        ]
+
+        kinds = {service.kind for service in priced_services}
+
+        if not kinds.issubset({"CONSULT", "TEST"}):
+            raise ValidationError("An invalid service type was selected.")
+
+        if len(kinds) > 1:
+            raise ValidationError(
+                "Pay consultation and laboratory tests on separate receipts."
+            )
+
+        today = timezone.localdate()
+
+        consultation_paid_today = PaymentItem.objects.filter(
+            payment__visit=visit,
+            payment__paid_at__date=today,
+            service__kind="CONSULT",
+        ).exists()
+
+        selected_kind = next(iter(kinds))
+
+        if selected_kind == "TEST" and not consultation_paid_today:
+            raise ValidationError(
+                "Consultation must be paid before laboratory tests."
+            )
+
+        if selected_kind == "CONSULT" and consultation_paid_today:
+            raise ValidationError(
+                "Consultation has already been paid for this visit today."
+            )
+
         payment = Payment.objects.create(
             receipt_no=next_receipt_no(),
             visit=visit,
             total=sum(service.price for service in priced_services),
             received_by=user,
         )
+
         PaymentItem.objects.bulk_create(
             [
                 PaymentItem(
@@ -74,34 +143,32 @@ def record_payment(visit, services, user):
                 for service in priced_services
             ]
         )
-        log(user, "PAY", f"Receipt {payment.receipt_no}: TZS {payment.total}")
-        return payment
 
+        log(
+            user,
+            "PAY",
+            f"Receipt {payment.receipt_no}: TZS {payment.total}",
+        )
 
-def void_payment(payment, user, reason):
-    if not is_owner(user):
-        raise PermissionDenied("Only an owner can void a payment.")
-    if not reason or not reason.strip():
-        raise ValidationError("A void reason is required.")
-
-    with transaction.atomic():
-        payment = Payment.objects.select_for_update().get(pk=payment.pk)
-        if payment.voided:
-            raise ValidationError("This payment has already been voided.")
-        payment.voided = True
-        payment.void_reason = reason.strip()
-        payment.voided_by = user
-        payment.voided_at = timezone.now()
-        payment.save(update_fields=["voided", "void_reason", "voided_by", "voided_at"])
-        log(user, "VOID", f"Receipt {payment.receipt_no}: {payment.void_reason}")
         return payment
 
 
 def register_reprint(payment, user):
+    """Record a receipt reprint without changing the original payment."""
     with transaction.atomic():
-        stored_payment = Payment.objects.select_for_update().get(pk=payment.pk)
+        stored_payment = Payment.objects.select_for_update().get(
+            pk=payment.pk
+        )
+
         stored_payment.reprints += 1
         stored_payment.save(update_fields=["reprints"])
-        log(user, "REPRINT", f"Receipt {stored_payment.receipt_no}")
+
+        log(
+            user,
+            "REPRINT",
+            f"Receipt {stored_payment.receipt_no}",
+        )
+
         payment.reprints = stored_payment.reprints
+
         return stored_payment
