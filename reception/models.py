@@ -24,10 +24,15 @@ class Setting(models.Model):
 
 class Visit(models.Model):
     SEX = [('M', 'Male'), ('F', 'Female')]
+
     name = models.CharField(max_length=120)
+    first_name = models.CharField(max_length=60, blank=True, default='')
+    second_name = models.CharField(max_length=60, blank=True, default='')
     phone = models.CharField(max_length=20, blank=True)
     age = models.PositiveSmallIntegerField()
     sex = models.CharField(max_length=1, choices=SEX)
+    physical_address = models.CharField(max_length=255, blank=True, default='')
+
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name='+')
 
