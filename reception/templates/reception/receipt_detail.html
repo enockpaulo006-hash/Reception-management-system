@@ -1,3 +1,4 @@
+﻿
 {% extends "reception/base.html" %}
 
 {% block title %}Receipt {{ payment.receipt_no }} - St. Pius Dispensary{% endblock %}
@@ -7,6 +8,7 @@
 <style>
   .thermal-receipt {
     width: 80mm;
+    max-width: 100%;
     margin: 0 auto;
     padding: 3mm;
     box-sizing: border-box;
@@ -40,6 +42,7 @@
   }
 
   .receipt-row span:first-child {
+    min-width: 0;
     overflow-wrap: anywhere;
   }
 
@@ -61,7 +64,8 @@
   @media print {
     .sidebar,
     .header,
-    .messages {
+    .messages,
+    .no-print {
       display: none !important;
     }
 
@@ -78,6 +82,7 @@
 
     .thermal-receipt {
       width: 74mm;
+      max-width: none;
       margin: 0;
       padding: 0;
       box-shadow: none;
@@ -86,7 +91,6 @@
 </style>
 
 <article class="thermal-receipt">
-
   <h1>ST. PIUS DISPENSARY</h1>
 
   <div class="receipt-centre">Internal Cash Receipt</div>
@@ -96,7 +100,7 @@
   <div>Receipt: {{ payment.receipt_no|stringformat:"06d" }}</div>
   <div>Date: {{ payment.paid_at|date:"d M Y" }}</div>
   <div>Time: {{ payment.paid_at|time:"H:i" }}</div>
-  <div>Patient: {{ payment.visit.name }}</div>
+  <div>Patient: {% if payment.visit.first_name or payment.visit.second_name %}{{ payment.visit.first_name }} {{ payment.visit.second_name }}{% else %}{{ payment.visit.name }}{% endif %}</div>
   <div>Served by: {{ payment.received_by.get_username }}</div>
 
   <hr class="receipt-rule">
@@ -120,7 +124,6 @@
   <div class="receipt-centre" style="margin-top: 9px">
     Cash received
   </div>
-
 </article>
 
 {% if request.GET.print %}
@@ -132,3 +135,4 @@
 {% endif %}
 
 {% endblock %}
+
