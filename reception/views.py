@@ -95,35 +95,19 @@ def dashboard(request):
     return render(request, "reception/dashboard.html", context)
 
 
-
 @login_required
 def visit_new(request):
     if request.method == "POST":
         form = VisitForm(request.POST)
-
         if form.is_valid():
             visit = form.save(commit=False)
-
-            # Keep the existing full-name field for receipts and payments.
-            visit.name = (
-                f"{form.cleaned_data['first_name'].strip()} "
-                f"{form.cleaned_data['second_name'].strip()}"
-            ).strip()
-
             visit.created_by = request.user
             visit.save()
-
             log(request.user, "VISIT", f"Visit {visit.pk} registered")
             return redirect("visit_pay", pk=visit.pk)
     else:
         form = VisitForm()
-
-    return render(
-        request,
-        "reception/visit_form.html",
-        {"form": form},
-    )
-
+    return render(request, "reception/visit_form.html", {"form": form})
 
 
 @login_required
@@ -207,38 +191,91 @@ def user_toggle(request, pk):
     return redirect("user_list")
 
 
+
 @login_required
 def visit_pay(request, pk):
     visit = get_object_or_404(Visit, pk=pk)
+
     active_services = Service.objects.filter(active=True)
+    consultations = active_services.filter(kind="CONSULT").order_by("name")
+    tests = active_services.filter(kind="TEST").order_by("name")
+
     if request.method == "POST":
         selected_ids = request.POST.getlist("services")
-        selected_services = Service.objects.filter(pk__in=selected_ids, active=True)
+
+        # Prevent duplicate or unavailable service selections.
         if not selected_ids:
-            messages.error(request, "Select at least one service.")
-        elif len(selected_ids) != len(set(selected_ids)) or selected_services.count() != len(selected_ids):
-            messages.error(request, "One or more selected services are unavailable.")
+            messages.error(request, "Please select at least one service.")
+
+        elif len(selected_ids) != len(set(selected_ids)):
+            messages.error(
+                request,
+                "Duplicate service selections are not allowed."
+            )
+
         else:
-            try:
-                payment = record_payment(visit, selected_services, request.user)
-            except ValidationError as error:
-                messages.error(request, "; ".join(error.messages))
-            else:
-                return HttpResponseRedirect(
-                    f"{redirect('receipt_detail', no=payment.receipt_no).url}?print=1"
+            selected_services = active_services.filter(pk__in=selected_ids)
+
+            if selected_services.count() != len(selected_ids):
+                messages.error(
+                    request,
+                    "One or more selected services are unavailable."
                 )
+
+            else:
+                selected_kinds = set(
+                    selected_services.values_list("kind", flat=True)
+                )
+
+                # A single receipt must contain either consultations
+                # or laboratory tests, not both categories together.
+                if len(selected_kinds) > 1:
+                    messages.error(
+                        request,
+                        "Please select either consultation services "
+                        "or laboratory tests for this payment, not both."
+                    )
+
+                else:
+                    try:
+                        payment = record_payment(
+                            visit,
+                            selected_services,
+                            request.user
+                        )
+
+                    except ValidationError as error:
+                        messages.error(
+                            request,
+                            "; ".join(error.messages)
+                        )
+
+                    else:
+                        receipt_url = redirect(
+                            "receipt_detail",
+                            no=payment.receipt_no
+                        ).url
+
+                        return HttpResponseRedirect(
+                            f"{receipt_url}?print=1"
+                        )
+
+    context = {
+        "visit": visit,
+        "consultations": consultations,
+        "tests": tests,
+        "earlier_receipts": (
+            visit.payments
+            .select_related("received_by")
+            .order_by("-paid_at")
+        ),
+    }
 
     return render(
         request,
         "reception/visit_pay.html",
-        {
-            "visit": visit,
-            "consultations": active_services.filter(kind="CONSULT"),
-            "tests": active_services.filter(kind="TEST"),
-            "earlier_receipts": visit.payments.select_related("received_by").order_by("-paid_at"),
-        },
+        context
     )
-
 
 @login_required
 def receipt_detail(request, no):
