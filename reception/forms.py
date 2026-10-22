@@ -1,3 +1,5 @@
+import re
+
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, SetPasswordForm, UserCreationForm
 from django.contrib.auth.models import User
@@ -7,16 +9,85 @@ from django.core.exceptions import ValidationError
 from .models import Visit
 
 
+
+
 class VisitForm(forms.ModelForm):
+    first_name = forms.CharField(
+        label="First name",
+        max_length=60,
+        required=True,
+        widget=forms.TextInput(attrs={"autocomplete": "off"}),
+    )
+
+    second_name = forms.CharField(
+        label="Second name",
+        max_length=60,
+        required=True,
+        widget=forms.TextInput(attrs={"autocomplete": "off"}),
+    )
+
+    physical_address = forms.CharField(
+        label="Physical address",
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(attrs={"autocomplete": "off"}),
+    )
+    phone = forms.CharField(
+    label="Phone",
+    required=False,
+    max_length=10,
+    min_length=10,
+    widget=forms.TextInput(attrs={
+        "autocomplete": "off",
+        "maxlength": "10",
+        "minlength": "10",
+        "pattern": r"0[67][0-9]{8}",
+        "inputmode": "numeric",
+        "oninput": "this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10)",
+        "placeholder": "07XXXXXXXX or 06XXXXXXXX",
+        "title": "Enter exactly 10 digits starting with 06 or 07",
+    }),
+)
+
     class Meta:
         model = Visit
-        fields = ("name", "phone", "age", "sex")
+        fields = (
+            "first_name",
+            "second_name",
+            "phone",
+            "age",
+            "sex",
+            "physical_address",
+        )
+        labels = {
+            "phone": "Phone",
+            "age": "Age",
+            "sex": "Sex",
+        }
         widgets = {
-            "name": forms.TextInput(attrs={"autocomplete": "off"}),
-            "phone": forms.TextInput(attrs={"autocomplete": "off"}),
+            "phone": forms.TextInput(attrs={
+                "autocomplete": "off",
+                "maxlength": "10",
+                "minlength": "10",
+                "pattern": "0[67][0-9]{8}",
+                "inputmode": "numeric",
+                "placeholder": "07XXXXXXXX or 06XXXXXXXX",
+                "title": "Enter exactly 10 digits starting with 07 or 06",
+            }),
             "age": forms.NumberInput(attrs={"min": 0}),
+    
         }
 
+def clean_phone(self):
+    phone = self.cleaned_data.get("phone", "").strip()
+
+    if phone and not re.fullmatch(r"0[67]\d{8}", phone):
+        raise forms.ValidationError(
+            "Phone number must contain exactly 10 digits and start with 06 or 07."
+        )
+
+    return phone
+        
 
 class ClinicAuthenticationForm(AuthenticationForm):
     """Use clear, role-neutral login feedback for the shared sign-in page."""

@@ -1,51 +1,220 @@
 {% extends "reception/base.html" %}
 
-{% block title %}Receipt {{ payment.receipt_no }} - {{ CLINIC_NAME }}{% endblock %}
+{% block title %}Receipt {{ payment.receipt_no }} - St. Pius Dispensary{% endblock %}
 
 {% block content %}
-  <style>
-    .thermal-receipt { width:80mm; margin:0 auto; padding:3mm; background:#fff; color:#000; font-family:"Courier New",monospace; font-size:12px; line-height:1.35; }
-    .thermal-receipt h1 { margin:0 0 4px; font-size:16px; text-align:center; }
-    .receipt-centre { text-align:center; } .receipt-rule { border:0; border-top:1px dashed #000; margin:8px 0; }
-    .receipt-row { display:flex; justify-content:space-between; gap:10px; } .receipt-total { font-size:15px; font-weight:bold; }
-    .receipt-banner { margin:8px 0; padding:5px; border:2px solid #000; font-weight:bold; text-align:center; }
-    .screen-actions { width:80mm; margin:18px auto; display:flex; flex-wrap:wrap; gap:8px; } .screen-actions form { margin:0; }
-    .void-screen { width:80mm; margin:0 auto; padding:14px; background:#fff; border:1px solid #dce3ea; }
-    @page { size:80mm auto; margin:3mm; }
-    @media print { .sidebar, .header, .messages, .screen-actions, .void-screen { display:none !important; } body, .app, .shell, main { display:block !important; min-width:0 !important; background:#fff !important; padding:0 !important; margin:0 !important; } .thermal-receipt { width:74mm; margin:0; padding:0; box-shadow:none; } }
-  </style>
-  <article class="thermal-receipt">
-    <h1>{{ CLINIC_NAME }}</h1>
-    <div class="receipt-centre">Internal cash receipt</div>
-    {% if request.GET.copy %}<div class="receipt-banner">DUPLICATE (copy {{ payment.reprints }})</div>{% endif %}
-    {% if payment.voided %}<div class="receipt-banner">VOID</div>{% endif %}
-    <hr class="receipt-rule">
-    <div>Receipt: {{ payment.receipt_no|stringformat:"06d" }}</div>
-    <div>Date: {{ payment.paid_at|date:"d M Y" }}</div>
-    <div>Time: {{ payment.paid_at|time:"H:i" }}</div>
-    <div>Patient: {{ payment.visit.name }}</div>
-    <div>Served by: {{ payment.received_by.get_username }}</div>
-    <hr class="receipt-rule">
-    {% for item in payment.items.all %}<div class="receipt-row"><span>{{ item.name }}</span><span>TZS {{ item.price }}</span></div>{% endfor %}
-    <hr class="receipt-rule">
-    <div class="receipt-row receipt-total"><span>TOTAL</span><span>TZS {{ payment.total }}</span></div>
-    <div class="receipt-centre" style="margin-top:9px">Cash received</div>
-    {% if payment.voided %}<div style="margin-top:8px">Reason: {{ payment.void_reason }}</div>{% endif %}
-  </article>
-  <div class="screen-actions">
-    <button type="button" onclick="window.print()">Print</button>
-    <form method="post" action="{% url 'receipt_reprint' payment.receipt_no %}">{% csrf_token %}<button type="submit">Reprint</button></form>
-    <a href="{% url 'visit_pay' payment.visit_id %}">Back</a>
-    <a href="{% url 'visit_new' %}">New patient</a>
-  </div>
-  {% if can_void and not payment.voided %}
-    <form class="void-screen" method="post" action="{% url 'receipt_void' payment.receipt_no %}">
-      {% csrf_token %}
-      <h2>Void receipt</h2>
-      <label for="void-reason" style="display:block;margin:10px 0 5px">Reason</label>
-      <input id="void-reason" name="reason" required maxlength="255" style="width:100%;padding:8px;border:1px solid #bfcbd5;border-radius:4px">
-      <button type="submit" style="margin-top:10px">Void receipt</button>
-    </form>
+
+<style>
+  .thermal-receipt {
+    width: 80mm;
+    margin: 0 auto;
+    padding: 3mm;
+    box-sizing: border-box;
+    background: #fff;
+    color: #000;
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .thermal-receipt h1 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    text-align: center;
+  }
+
+  .receipt-centre {
+    text-align: center;
+  }
+
+  .receipt-rule {
+    border: 0;
+    border-top: 1px dashed #000;
+    margin: 8px 0;
+  }
+
+  .receipt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .receipt-row span:first-child {
+    overflow-wrap: anywhere;
+  }
+
+  .receipt-row span:last-child {
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  .receipt-total {
+    font-size: 15px;
+    font-weight: bold;
+  }
+
+  .receipt-banner {
+    margin: 8px 0;
+    padding: 5px;
+    border: 2px solid #000;
+    font-weight: bold;
+    text-align: center;
+  }
+
+  .screen-actions {
+    width: 80mm;
+    margin: 18px auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .screen-actions form {
+    margin: 0;
+  }
+
+  .void-screen {
+    width: 80mm;
+    margin: 0 auto;
+    padding: 14px;
+    box-sizing: border-box;
+    background: #fff;
+    border: 1px solid #dce3ea;
+  }
+
+  @page {
+    size: 80mm auto;
+    margin: 3mm;
+  }
+
+  @media print {
+    .sidebar,
+    .header,
+    .messages,
+    .screen-actions,
+    .void-screen {
+      display: none !important;
+    }
+
+    body,
+    .app,
+    .shell,
+    main {
+      display: block !important;
+      min-width: 0 !important;
+      background: #fff !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    .thermal-receipt {
+      width: 74mm;
+      margin: 0;
+      padding: 0;
+      box-shadow: none;
+    }
+  }
+</style>
+
+<article class="thermal-receipt">
+
+  <h1>ST. PIUS DISPENSARY</h1>
+
+  <div class="receipt-centre">Internal Cash Receipt</div>
+
+  {% if payment.voided %}
+    <div class="receipt-banner">VOID</div>
   {% endif %}
-  {% if request.GET.print %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
+
+  <hr class="receipt-rule">
+
+  <div>Receipt: {{ payment.receipt_no|stringformat:"06d" }}</div>
+  <div>Date: {{ payment.paid_at|date:"d M Y" }}</div>
+  <div>Time: {{ payment.paid_at|time:"H:i" }}</div>
+  <div>Patient: {{ payment.visit.name }}</div>
+  <div>Served by: {{ payment.received_by.get_username }}</div>
+
+  <hr class="receipt-rule">
+
+  {% for item in payment.items.all %}
+    <div class="receipt-row">
+      <span>{{ item.name }}</span>
+      <span>TZS {{ item.price }}</span>
+    </div>
+  {% empty %}
+    <div>No services recorded.</div>
+  {% endfor %}
+
+  <hr class="receipt-rule">
+
+  <div class="receipt-row receipt-total">
+    <span>TOTAL</span>
+    <span>TZS {{ payment.total }}</span>
+  </div>
+
+  <div class="receipt-centre" style="margin-top: 9px">
+    Cash received
+  </div>
+
+  {% if payment.voided %}
+    <div style="margin-top: 8px">
+      Reason: {{ payment.void_reason }}
+    </div>
+  {% endif %}
+
+</article>
+
+<div class="screen-actions">
+
+  <button type="button" onclick="window.print()">Print</button>
+
+  <form method="post"
+        action="{% url 'receipt_reprint' payment.receipt_no %}">
+    {% csrf_token %}
+    <button type="submit">Reprint</button>
+  </form>
+
+  <a href="{% url 'visit_pay' payment.visit_id %}">Back</a>
+
+  <a href="{% url 'visit_new' %}">New patient</a>
+
+</div>
+
+{% if can_void and not payment.voided %}
+  <form class="void-screen"
+        method="post"
+        action="{% url 'receipt_void' payment.receipt_no %}">
+
+    {% csrf_token %}
+
+    <h2>Void receipt</h2>
+
+    <label for="void-reason"
+           style="display:block; margin:10px 0 5px">
+      Reason
+    </label>
+
+    <input
+      id="void-reason"
+      name="reason"
+      required
+      maxlength="255"
+      style="width:100%; padding:8px; border:1px solid #bfcbd5; border-radius:4px"
+    >
+
+    <button type="submit" style="margin-top:10px">
+      Void receipt
+    </button>
+
+  </form>
+{% endif %}
+
+{% if request.GET.print %}
+  <script>
+    window.addEventListener("load", function () {
+      window.print();
+    });
+  </script>
+{% endif %}
+
 {% endblock %}

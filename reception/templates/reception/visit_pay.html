@@ -1,38 +1,289 @@
 {% extends "reception/base.html" %}
 
-{% block title %}Take payment - {{ CLINIC_NAME }}{% endblock %}
+{% block title %}Take payment - St. Pius Dispensary{% endblock %}
 
 {% block content %}
-  <h1>Take payment <small style="font-size:13px;font-weight:400;color:#637282">{{ visit.name }}</small></h1>
-  <div class="panels">
-    <section class="panel">
-      <div class="panel-head"><h2>Select services</h2></div>
-      <div class="panel-body" style="padding:18px">
-        <form method="post" id="payment-form">
-          {% csrf_token %}
-          <h2 style="margin:0 0 10px">Consultation</h2>
-          {% for service in consultations %}<label style="display:block;padding:8px 0"><input class="service-choice" type="checkbox" name="services" value="{{ service.pk }}" data-price="{{ service.price }}"> {{ service.name }} <span style="float:right">TZS {{ service.price }}</span></label>{% empty %}<p class="empty">No consultation services are active.</p>{% endfor %}
-          <h2 style="margin:20px 0 10px">Tests</h2>
-          {% for service in tests %}<label style="display:block;padding:8px 0"><input class="service-choice" type="checkbox" name="services" value="{{ service.pk }}" data-price="{{ service.price }}"> {{ service.name }} <span style="float:right">TZS {{ service.price }}</span></label>{% empty %}<p class="empty">No test services are active.</p>{% endfor %}
-          <p style="margin-top:22px;font-size:18px"><strong>Display total: TZS <span id="live-total">0</span></strong></p>
-          <button type="submit">Create payment</button>
-        </form>
-      </div>
+<style>
+  .take-payment-page { width: 100%; }
+  .payment-title { text-align: center; margin: 8px 0 30px; font-size: 30px; }
+  .payment-title small { color: #637282; font-size: 20px; font-weight: 400; }
+  .payment-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; }
+  .services-column, .receipt-column { min-width: 0; }
+  .section-title { margin: 0 0 12px; font-size: 22px; font-weight: 600; }
+  .services-box { min-height: 400px; padding: 18px; background: white; border: 1px solid #cbd5df; border-radius: 5px; box-sizing: border-box; }
+  .service-category { margin: 0 0 15px; font-size: 19px; }
+  .service-list { margin-bottom: 28px; }
+  .service-option { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 8px; border-bottom: 1px solid #e5eaf0; cursor: pointer; }
+  .service-option:hover { background: #f5f9fd; }
+  .service-option-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .service-option input { width: 19px; height: 19px; flex-shrink: 0; accent-color: #2878c8; }
+  .service-option-name { overflow-wrap: anywhere; }
+  .service-option-price { white-space: nowrap; font-weight: 600; }
+  .no-services { color: #637282; padding: 10px 0; }
+  .print-receipt-button { width: 100%; max-width: 350px; min-height: 54px; margin-top: 18px; padding: 12px 20px; border: 1px solid #2878c8; border-radius: 5px; background: #2878c8; color: white; font-size: 18px; font-weight: 600; cursor: pointer; }
+  .print-receipt-button:hover { background: #1e5f9e; }
+  .print-receipt-button:disabled { opacity: .55; cursor: not-allowed; }
+  .receipt-heading-label { margin-bottom: 12px; }
+  .receipt-paper { min-height: 400px; padding: 22px 20px; box-sizing: border-box; background: #fff; border: 1px solid #cbd5df; border-radius: 3px; color: #20252b; font-family: Arial, sans-serif; font-size: 14px; }
+  .receipt-header { text-align: center; padding-bottom: 16px; border-bottom: 1px dashed #7c8792; }
+  .receipt-header h3 { margin: 0 0 6px; font-size: 21px; }
+  .receipt-header p { margin: 4px 0; }
+  .receipt-details { padding: 14px 0; line-height: 1.9; border-bottom: 1px dashed #7c8792; }
+  .receipt-detail-row { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 5px; }
+  .receipt-detail-row span:last-child { overflow-wrap: anywhere; }
+  .receipt-items { width: 100%; margin-top: 12px; border-collapse: collapse; }
+  .receipt-items th, .receipt-items td { padding: 10px 3px; text-align: left; vertical-align: top; border-bottom: 1px dashed #cbd2d9; }
+  .receipt-items th:last-child, .receipt-items td:last-child { text-align: right; white-space: nowrap; }
+  .receipt-total { display: flex; justify-content: space-between; gap: 10px; padding: 14px 3px; border-top: 2px solid #333; font-size: 18px; font-weight: 700; }
+  .receipt-footer { padding: 17px 0 4px; border-top: 1px dashed #7c8792; text-align: center; font-size: 17px; font-weight: 600; }
+  .receipt-footer p { margin: 5px 0 0; font-size: 12px; font-weight: 400; }
+  .receipt-notice { color: #637282; font-size: 12px; line-height: 1.5; margin-top: 10px; }
+
+  @media (max-width: 800px) {
+    .payment-layout { grid-template-columns: 1fr; gap: 28px; }
+    .payment-title { text-align: left; font-size: 25px; }
+    .payment-title small { display: block; margin-top: 5px; }
+    .services-box { min-height: 300px; }
+  }
+
+  @media print {
+    body * { visibility: hidden !important; }
+    #receipt-paper, #receipt-paper * { visibility: visible !important; }
+    #receipt-paper {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 72mm;
+      min-height: 0;
+      margin: 0;
+      padding: 4mm;
+      border: 0;
+      border-radius: 0;
+      font-size: 10pt;
+    }
+    @page { size: 80mm auto; margin: 3mm; }
+  }
+</style>
+
+<div class="take-payment-page">
+  <h1 class="payment-title">
+    Take payment
+    <small>({{ visit.name }})</small>
+  </h1>
+
+  <div class="payment-layout">
+    <section class="services-column">
+      <h2 class="section-title">Services</h2>
+
+      <form method="post" id="payment-form">
+        {% csrf_token %}
+
+        <div class="services-box">
+          <h3 class="service-category">Consultation</h3>
+
+          <div class="service-list">
+            {% for service in consultations %}
+              <label class="service-option">
+                <span class="service-option-left">
+                  <input
+                    class="service-choice"
+                    type="checkbox"
+                    name="services"
+                    value="{{ service.pk }}"
+                    data-price="{{ service.price }}"
+                    data-service-name="{{ service.name }}"
+                  >
+                  <span class="service-option-name">{{ service.name }}</span>
+                </span>
+                <span class="service-option-price">TZS {{ service.price }}</span>
+              </label>
+            {% empty %}
+              <p class="no-services">No consultation services are active.</p>
+            {% endfor %}
+          </div>
+
+          <h3 class="service-category">Tests</h3>
+
+          <div class="service-list">
+            {% for service in tests %}
+              <label class="service-option">
+                <span class="service-option-left">
+                  <input
+                    class="service-choice"
+                    type="checkbox"
+                    name="services"
+                    value="{{ service.pk }}"
+                    data-price="{{ service.price }}"
+                    data-service-name="{{ service.name }}"
+                  >
+                  <span class="service-option-name">{{ service.name }}</span>
+                </span>
+                <span class="service-option-price">TZS {{ service.price }}</span>
+              </label>
+            {% empty %}
+              <p class="no-services">No test services are active.</p>
+            {% endfor %}
+          </div>
+
+          <div class="receipt-total">
+            <span>TOTAL</span>
+            <span>TZS <span id="live-total">0</span></span>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          class="print-receipt-button"
+          id="print-receipt-button"
+          disabled
+        >Print receipt</button>
+      </form>
     </section>
-    <section class="panel">
-      <div class="panel-head"><h2>Earlier receipts</h2></div>
-      <div class="panel-body">
-        <table><thead><tr><th>Receipt</th><th>Time</th><th>Amount</th></tr></thead><tbody>{% for payment in earlier_receipts %}<tr class="{% if payment.voided %}voided{% endif %}"><td><a href="{% url 'receipt_detail' payment.receipt_no %}">{{ payment.receipt_no }}</a></td><td>{{ payment.paid_at|date:"d M H:i" }}</td><td>TZS {{ payment.total }}</td></tr>{% empty %}<tr><td colspan="3" class="empty">No earlier receipts for this visit.</td></tr>{% endfor %}</tbody></table>
+
+    <section class="receipt-column">
+      <h2 class="section-title receipt-heading-label">Receipt</h2>
+
+      <div class="receipt-paper" id="receipt-paper">
+        <div class="receipt-header">
+          <h3>ST. PIUS DISPENSARY</h3>
+          <p>Internal</p>
+          <p>Cash Receipt</p>
+        </div>
+
+        <div class="receipt-details">
+          <div class="receipt-detail-row">
+            <strong>Receipt:</strong>
+            <span>Pending payment</span>
+          </div>
+          <div class="receipt-detail-row">
+            <strong>Date:</strong>
+            <span id="receipt-date"></span>
+          </div>
+          <div class="receipt-detail-row">
+            <strong>Time:</strong>
+            <span id="receipt-time"></span>
+          </div>
+          <div class="receipt-detail-row">
+            <strong>Patient:</strong>
+            <span>{{ visit.name }}</span>
+          </div>
+          <div class="receipt-detail-row">
+            <strong>Served by:</strong>
+            <span>{{ request.user.get_username }}</span>
+          </div>
+        </div>
+
+        <table class="receipt-items">
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody id="receipt-service-list">
+            <tr>
+              <td colspan="2" style="text-align:center">Select a service</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="receipt-total">
+          <span>TOTAL</span>
+          <span>TZS <span id="receipt-total">0</span></span>
+        </div>
+
+        <div class="receipt-footer">
+          Cash received.
+          <p>Thank you.</p>
+        </div>
       </div>
+
+      <p class="receipt-notice">
+        The official receipt number is assigned after payment is successfully recorded.
+      </p>
     </section>
   </div>
-  <script>
-    document.querySelectorAll('.service-choice').forEach(function (choice) {
-      choice.addEventListener('change', function () {
-        var total = 0;
-        document.querySelectorAll('.service-choice:checked').forEach(function (selected) { total += Number(selected.dataset.price); });
-        document.getElementById('live-total').textContent = total;
-      });
+</div>
+
+<script>
+(function () {
+  const choices = document.querySelectorAll(".service-choice");
+  const form = document.getElementById("payment-form");
+  const button = document.getElementById("print-receipt-button");
+  const receiptList = document.getElementById("receipt-service-list");
+
+  function formatAmount(amount) {
+    return amount.toLocaleString("en-US");
+  }
+
+  function updateReceipt() {
+    let total = 0;
+    receiptList.replaceChildren();
+
+    const selected = Array.from(choices).filter(item => item.checked);
+    button.disabled = selected.length === 0;
+
+    if (selected.length === 0) {
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = 2;
+      cell.style.textAlign = "center";
+      cell.textContent = "Select a service";
+      row.appendChild(cell);
+      receiptList.appendChild(row);
+    }
+
+    selected.forEach(item => {
+      const price = Number(item.dataset.price) || 0;
+      total += price;
+
+      const row = document.createElement("tr");
+      const name = document.createElement("td");
+      const amount = document.createElement("td");
+
+      name.textContent = item.dataset.serviceName;
+      amount.textContent = formatAmount(price);
+
+      row.appendChild(name);
+      row.appendChild(amount);
+      receiptList.appendChild(row);
     });
-  </script>
+
+    document.getElementById("live-total").textContent = formatAmount(total);
+    document.getElementById("receipt-total").textContent = formatAmount(total);
+  }
+
+  function updateDateTime() {
+    const now = new Date();
+
+    document.getElementById("receipt-date").textContent =
+      now.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      });
+
+    document.getElementById("receipt-time").textContent =
+      now.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      });
+  }
+
+  choices.forEach(item => item.addEventListener("change", updateReceipt));
+
+  form.addEventListener("submit", function (event) {
+    const selected = Array.from(choices).some(item => item.checked);
+
+    if (!selected) {
+      event.preventDefault();
+      alert("Please select at least one service.");
+    }
+  });
+
+  updateDateTime();
+  updateReceipt();
+})();
+</script>
 {% endblock %}

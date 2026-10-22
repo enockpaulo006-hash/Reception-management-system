@@ -1,22 +1,213 @@
+
 {% extends "reception/base.html" %}
 
 {% block title %}New patient - {{ CLINIC_NAME }}{% endblock %}
 
 {% block content %}
-  <div class="panel" style="max-width:560px">
-    <div class="panel-head"><h1 style="margin:0">New patient</h1></div>
-    <div class="panel-body" style="padding:18px">
-      <form method="post">
-        {% csrf_token %}
-        {% for field in form %}
-          <div style="margin-bottom:15px">
-            <label for="{{ field.id_for_label }}" style="display:block;margin-bottom:5px;font-weight:600">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
-            {{ field }}
-            {% for error in field.errors %}<div style="color:#8d2525;margin-top:4px">{{ error }}</div>{% endfor %}
-          </div>
-        {% endfor %}
-        <button type="submit">Save and take payment</button>
-      </form>
+<div class="panel patient-panel">
+    <div class="panel-head">
+        <h1 style="margin: 0;">New patient</h1>
     </div>
-  </div>
+
+    <div class="panel-body patient-form-body">
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="form-errors">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <div class="patient-grid">
+
+                <!-- Row 1: First name | Second name -->
+                <div class="patient-field">
+                    <label for="{{ form.first_name.id_for_label }}">
+                        First name *
+                    </label>
+                    {{ form.first_name }}
+                    {% for error in form.first_name.errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="patient-field">
+                    <label for="{{ form.second_name.id_for_label }}">
+                        Second name *
+                    </label>
+                    {{ form.second_name }}
+                    {% for error in form.second_name.errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <!-- Row 2: Phone | Age -->
+                <div class="patient-field">
+                    <label for="{{ form.phone.id_for_label }}">
+                        Phone
+                    </label>
+                    {{ form.phone }}
+                    {% for error in form.phone.errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="patient-field">
+                    <label for="{{ form.age.id_for_label }}">
+                        Age *
+                    </label>
+                    {{ form.age }}
+                    {% for error in form.age.errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <!-- Row 3: Sex | Physical address -->
+                <div class="patient-field">
+                    <label>Sex *</label>
+                    <div class="sex-options">
+                        {{ form.sex }}
+                    </div>
+                    {% for error in form.sex.errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="patient-field">
+                    <label for="{{ form.physical_address.id_for_label }}">
+                        Physical address
+                    </label>
+                    {{ form.physical_address }}
+                    {% for error in form.physical_address.errors %}
+                        <div class="field-error">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+            </div>
+
+            <div class="patient-form-actions">
+                <button type="submit">Next </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .patient-panel {
+        width: 100%;
+        max-width: 900px;
+        margin: 0 auto;
+        box-sizing: border-box;
+    }
+
+    .patient-form-body {
+        padding: 28px;
+    }
+
+    .patient-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 32px;
+        row-gap: 26px;
+        align-items: start;
+    }
+
+    .patient-field {
+        min-width: 0;
+    }
+
+    .patient-field > label {
+        display: block;
+        margin-bottom: 9px;
+        font-weight: 600;
+    }
+
+    .patient-field input:not([type="radio"]),
+    .patient-field select,
+    .patient-field textarea {
+        display: block;
+        width: 100%;
+        min-height: 44px;
+        padding: 10px 12px;
+        border: 1px solid #b9c5d1;
+        border-radius: 5px;
+        box-sizing: border-box;
+        font: inherit;
+        background: #fff;
+    }
+
+    .patient-field input:focus {
+        outline: 2px solid #9ac5f5;
+        outline-offset: 1px;
+        border-color: #2878c8;
+    }
+
+    .sex-options ul {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 24px;
+        list-style: none;
+        margin: 0;
+        padding: 10px 0;
+    }
+
+    .sex-options li {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+    }
+
+    .sex-options label {
+        cursor: pointer;
+    }
+
+    .sex-options input[type="radio"] {
+        margin: 0;
+        width: 16px;
+        height: 16px;
+        accent-color: #2878c8;
+    }
+
+    .field-error,
+    .form-errors {
+        color: #a12626;
+        margin-top: 5px;
+        font-size: 14px;
+    }
+
+    .patient-form-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 30px;
+    }
+
+    .patient-form-actions button {
+        min-width: 110px;
+        padding: 11px 22px;
+        border: none;
+        border-radius: 5px;
+        background: #2878c8;
+        color: white;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .patient-form-actions button:hover {
+        background: #1e5f9e;
+    }
+
+    @media (max-width: 600px) {
+        .patient-grid {
+            grid-template-columns: 1fr;
+            row-gap: 20px;
+        }
+
+        .patient-form-body {
+            padding: 18px;
+        }
+    }
+</style>
 {% endblock %}
