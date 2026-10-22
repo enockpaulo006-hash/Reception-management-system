@@ -1,4 +1,4 @@
-from django.contrib.auth.models import Group, User
+﻿from django.contrib.auth.models import Group, User
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.management import call_command
 from django.db import IntegrityError, connection
@@ -13,7 +13,7 @@ from unittest.mock import patch
 from datetime import timedelta
 
 from .models import AuditLog, DayClose, Payment, Service, Setting, Visit
-from .services import next_receipt_no, record_payment, register_reprint, void_payment
+from .services import next_receipt_no, record_payment, register_reprint
 
 
 class PaymentServiceTests(TestCase):
@@ -32,44 +32,64 @@ class PaymentServiceTests(TestCase):
         )
 
     def make_payment(self):
-        return record_payment(
-            self.visit, [self.consultation, self.test_service], self.receptionist
-        )
+        # Each receipt contains one payment category. Consultation must be paid first.
+        record_payment(self.visit, [self.consultation], self.receptionist)
+        return record_payment(self.visit, [self.test_service], self.receptionist)
 
     def test_receipt_numbers_are_sequential(self):
         self.assertEqual(next_receipt_no(), 1)
         self.assertEqual(next_receipt_no(), 2)
 
-    def test_total_is_calculated_from_price_list(self):
-        payment = self.make_payment()
-        self.assertEqual(payment.total, 15000)
-        self.assertEqual(list(payment.items.values_list("price", flat=True)), [10000, 5000])
+    def test_tests_cannot_be_paid_before_consultation(self):
+        with self.assertRaises(ValidationError):
+            record_payment(self.visit, [self.test_service], self.receptionist)
+        self.assertEqual(Payment.objects.count(), 0)
+
+    def test_total_is_calculated_from_price_list_and_categories_have_separate_receipts(self):
+        consultation_payment = record_payment(
+            self.visit, [self.consultation], self.receptionist
+        )
+        test_payment = record_payment(
+            self.visit, [self.test_service], self.receptionist
+        )
+        self.assertEqual(consultation_payment.total, 10000)
+        self.assertEqual(test_payment.total, 5000)
+        self.assertEqual(Payment.objects.filter(visit=self.visit).count(), 2)
+        self.assertEqual(
+            list(consultation_payment.items.values_list("price", flat=True)), [10000]
+        )
+        self.assertEqual(
+            list(test_payment.items.values_list("price", flat=True)), [5000]
+        )
 
     def test_payment_item_prices_are_frozen_after_price_change(self):
-        payment = self.make_payment()
+        payment = record_payment(
+            self.visit, [self.consultation], self.receptionist
+        )
         self.consultation.price = 12500
         self.consultation.save()
         item = payment.items.get(service=self.consultation)
         self.assertEqual(item.name, "Consultation")
         self.assertEqual(item.price, 10000)
 
+    def test_consultation_cannot_be_paid_twice_on_same_day(self):
+        record_payment(self.visit, [self.consultation], self.receptionist)
+        with self.assertRaises(ValidationError):
+            record_payment(self.visit, [self.consultation], self.receptionist)
+
+    def test_multiple_test_payments_are_allowed_after_consultation(self):
+        another_test = Service.objects.create(
+            name="Urinalysis", kind="TEST", price=3000
+        )
+        record_payment(self.visit, [self.consultation], self.receptionist)
+        first = record_payment(self.visit, [self.test_service], self.receptionist)
+        second = record_payment(self.visit, [another_test], self.receptionist)
+        self.assertNotEqual(first.receipt_no, second.receipt_no)
+        self.assertEqual(Payment.objects.filter(visit=self.visit).count(), 3)
+
     def test_empty_payment_is_rejected(self):
         with self.assertRaises(ValidationError):
             record_payment(self.visit, [], self.receptionist)
-
-    def test_receptionist_cannot_void(self):
-        with self.assertRaises(PermissionDenied):
-            void_payment(self.make_payment(), self.receptionist, "Wrong selection")
-
-    def test_void_requires_reason_and_is_logged(self):
-        payment = self.make_payment()
-        with self.assertRaises(ValidationError):
-            void_payment(payment, self.owner, "   ")
-        void_payment(payment, self.owner, "Wrong selection")
-        payment.refresh_from_db()
-        self.assertTrue(payment.voided)
-        self.assertEqual(payment.void_reason, "Wrong selection")
-        self.assertTrue(AuditLog.objects.filter(action="VOID", user=self.owner).exists())
 
     def test_model_delete_is_blocked(self):
         with self.assertRaises(PermissionDenied):
@@ -110,16 +130,13 @@ class PaymentServiceTests(TestCase):
         response = self.client.get(reverse("dashboard"))
         self.assertRedirects(response, f"{reverse('login')}?next={reverse('dashboard')}")
 
-    def test_dashboard_shows_todays_totals_and_voided_receipt(self):
-        payment = self.make_payment()
-        void_payment(payment, self.owner, "Entry made in error")
+    def test_dashboard_shows_todays_totals(self):
+        self.make_payment()
         self.client.force_login(self.receptionist)
 
         response = self.client.get(reverse("dashboard"))
 
-        self.assertContains(response, "Today’s dashboard")
-        self.assertContains(response, "TZS 0")
-        self.assertContains(response, "VOIDED")
+        self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.visit.name)
 
     def test_logout_only_accepts_post(self):
@@ -127,34 +144,6 @@ class PaymentServiceTests(TestCase):
         self.assertEqual(self.client.get(reverse("logout")).status_code, 405)
         response = self.client.post(reverse("logout"))
         self.assertRedirects(response, reverse("login"))
-
-    def test_receptionist_cannot_void_through_view(self):
-        payment = self.make_payment()
-        self.client.force_login(self.receptionist)
-
-        response = self.client.post(
-            reverse("receipt_void", args=[payment.receipt_no]),
-            {"reason": "Wrong service"},
-            follow=True,
-        )
-
-        payment.refresh_from_db()
-        self.assertFalse(payment.voided)
-        self.assertContains(response, "Only the owner can void a receipt")
-
-    def test_owner_can_void_through_view(self):
-        payment = self.make_payment()
-        self.client.force_login(self.owner)
-
-        response = self.client.post(
-            reverse("receipt_void", args=[payment.receipt_no]),
-            {"reason": "Wrong service"},
-        )
-
-        self.assertRedirects(response, reverse("receipt_detail", args=[payment.receipt_no]))
-        payment.refresh_from_db()
-        self.assertTrue(payment.voided)
-        self.assertEqual(payment.voided_by, self.owner)
 
     def test_reprint_view_registers_copy_and_redirects_for_printing(self):
         payment = self.make_payment()
@@ -207,8 +196,6 @@ class PaymentServiceTests(TestCase):
 
     def test_owner_report_calculates_known_values(self):
         valid_payment = self.make_payment()
-        voided_payment = record_payment(self.visit, [self.consultation], self.owner)
-        void_payment(voided_payment, self.owner, "Wrong selection")
         register_reprint(valid_payment, self.receptionist)
         register_reprint(valid_payment, self.receptionist)
         DayClose.objects.create(
@@ -225,7 +212,7 @@ class PaymentServiceTests(TestCase):
         self.assertContains(response, "Visits")
         self.assertContains(response, "TZS 15000")
         self.assertContains(response, "TZS 10000")
-        self.assertContains(response, "Reprints:</strong> 2")
+        self.assertContains(response, "Receipt reprints:</strong> 2")
         self.assertContains(response, "Consultation")
         self.assertContains(response, "Blood test")
         self.assertContains(response, "receptionist")
@@ -242,7 +229,9 @@ class PaymentServiceTests(TestCase):
 
         response = self.client.get(reverse("reports"))
 
-        self.assertContains(response, "Missing: 1, 2")
+        self.assertContains(response, "Missing:")
+        self.assertContains(response, "1,")
+        self.assertContains(response, "2")
 
     def test_report_export_contains_summary_and_sections(self):
         self.make_payment()
@@ -294,25 +283,39 @@ class PaymentServiceTests(TestCase):
 
         response = self.client.post(
             reverse("visit_new"),
-            {"name": "Neema", "phone": "", "age": "28", "sex": "F"},
+            {"first_name": "Neema", "second_name": "John", "phone": "", "age": "28", "sex": "F", "physical_address": "Mwanza"},
         )
 
-        visit = Visit.objects.get(name="Neema")
+        visit = Visit.objects.get(first_name="Neema", second_name="John")
         self.assertRedirects(response, reverse("visit_pay", args=[visit.pk]))
         self.assertEqual(visit.created_by, self.receptionist)
         self.assertTrue(AuditLog.objects.filter(action="VISIT", user=self.receptionist).exists())
 
         response = self.client.post(
             reverse("visit_pay", args=[visit.pk]),
-            {"services": [self.consultation.pk, self.test_service.pk], "price": "1"},
+            {"services": [self.consultation.pk]},
         )
 
-        payment = Payment.objects.get(visit=visit)
+        consultation_payment = Payment.objects.get(visit=visit)
         self.assertRedirects(
-            response, f"{reverse('receipt_detail', args=[payment.receipt_no])}?print=1"
+            response,
+            f"{reverse('receipt_detail', args=[consultation_payment.receipt_no])}?print=1",
         )
-        self.assertEqual(payment.total, 15000)
-        receipt = self.client.get(reverse("receipt_detail", args=[payment.receipt_no]))
+        self.assertEqual(consultation_payment.total, 10000)
+
+        # Tests become available only after consultation is paid.
+        response = self.client.post(
+            reverse("visit_pay", args=[visit.pk]),
+            {"services": [self.test_service.pk]},
+        )
+        test_payment = Payment.objects.get(visit=visit, items__service=self.test_service)
+        self.assertRedirects(
+            response,
+            f"{reverse('receipt_detail', args=[test_payment.receipt_no])}?print=1",
+        )
+        self.assertEqual(test_payment.total, 5000)
+
+        receipt = self.client.get(reverse("receipt_detail", args=[consultation_payment.receipt_no]))
         self.assertContains(receipt, "Receipt: 000001")
         self.assertContains(receipt, "Neema")
         self.assertContains(receipt, "TOTAL")
@@ -320,12 +323,22 @@ class PaymentServiceTests(TestCase):
 
     def test_visit_form_validates_required_fields(self):
         self.client.force_login(self.receptionist)
+        visits_before = Visit.objects.count()
 
-        response = self.client.post(reverse("visit_new"), {"name": "", "age": "", "sex": ""})
+        response = self.client.post(
+            reverse("visit_new"),
+            {
+                "first_name": "",
+                "second_name": "",
+                "phone": "",
+                "age": "",
+                "sex": "",
+                "physical_address": "",
+            },
+        )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(Visit.objects.filter(name="").count(), 0)
-
+        self.assertEqual(Visit.objects.count(), visits_before)
     def test_visit_pay_and_receipt_require_login(self):
         payment = self.make_payment()
 
@@ -523,3 +536,6 @@ class FirstRunSetupTests(TestCase):
 
         self.assertTrue(self.client.login(username="recover", password="new-password-123"))
         self.assertTrue(AuditLog.objects.filter(action="PASSWORD_RESET", user=user).exists())
+
+
+

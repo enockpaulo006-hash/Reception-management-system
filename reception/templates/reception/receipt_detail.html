@@ -1,3 +1,4 @@
+﻿
 {% extends "reception/base.html" %}
 
 {% block title %}Receipt {{ payment.receipt_no }} - St. Pius Dispensary{% endblock %}
@@ -7,6 +8,7 @@
 <style>
   .thermal-receipt {
     width: 80mm;
+    max-width: 100%;
     margin: 0 auto;
     padding: 3mm;
     box-sizing: border-box;
@@ -40,6 +42,7 @@
   }
 
   .receipt-row span:first-child {
+    min-width: 0;
     overflow-wrap: anywhere;
   }
 
@@ -53,35 +56,6 @@
     font-weight: bold;
   }
 
-  .receipt-banner {
-    margin: 8px 0;
-    padding: 5px;
-    border: 2px solid #000;
-    font-weight: bold;
-    text-align: center;
-  }
-
-  .screen-actions {
-    width: 80mm;
-    margin: 18px auto;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .screen-actions form {
-    margin: 0;
-  }
-
-  .void-screen {
-    width: 80mm;
-    margin: 0 auto;
-    padding: 14px;
-    box-sizing: border-box;
-    background: #fff;
-    border: 1px solid #dce3ea;
-  }
-
   @page {
     size: 80mm auto;
     margin: 3mm;
@@ -91,8 +65,7 @@
     .sidebar,
     .header,
     .messages,
-    .screen-actions,
-    .void-screen {
+    .no-print {
       display: none !important;
     }
 
@@ -109,6 +82,7 @@
 
     .thermal-receipt {
       width: 74mm;
+      max-width: none;
       margin: 0;
       padding: 0;
       box-shadow: none;
@@ -117,21 +91,16 @@
 </style>
 
 <article class="thermal-receipt">
-
   <h1>ST. PIUS DISPENSARY</h1>
 
   <div class="receipt-centre">Internal Cash Receipt</div>
-
-  {% if payment.voided %}
-    <div class="receipt-banner">VOID</div>
-  {% endif %}
 
   <hr class="receipt-rule">
 
   <div>Receipt: {{ payment.receipt_no|stringformat:"06d" }}</div>
   <div>Date: {{ payment.paid_at|date:"d M Y" }}</div>
   <div>Time: {{ payment.paid_at|time:"H:i" }}</div>
-  <div>Patient: {{ payment.visit.name }}</div>
+  <div>Patient: {% if payment.visit.first_name or payment.visit.second_name %}{{ payment.visit.first_name }} {{ payment.visit.second_name }}{% else %}{{ payment.visit.name }}{% endif %}</div>
   <div>Served by: {{ payment.received_by.get_username }}</div>
 
   <hr class="receipt-rule">
@@ -155,59 +124,7 @@
   <div class="receipt-centre" style="margin-top: 9px">
     Cash received
   </div>
-
-  {% if payment.voided %}
-    <div style="margin-top: 8px">
-      Reason: {{ payment.void_reason }}
-    </div>
-  {% endif %}
-
 </article>
-
-<div class="screen-actions">
-
-  <button type="button" onclick="window.print()">Print</button>
-
-  <form method="post"
-        action="{% url 'receipt_reprint' payment.receipt_no %}">
-    {% csrf_token %}
-    <button type="submit">Reprint</button>
-  </form>
-
-  <a href="{% url 'visit_pay' payment.visit_id %}">Back</a>
-
-  <a href="{% url 'visit_new' %}">New patient</a>
-
-</div>
-
-{% if can_void and not payment.voided %}
-  <form class="void-screen"
-        method="post"
-        action="{% url 'receipt_void' payment.receipt_no %}">
-
-    {% csrf_token %}
-
-    <h2>Void receipt</h2>
-
-    <label for="void-reason"
-           style="display:block; margin:10px 0 5px">
-      Reason
-    </label>
-
-    <input
-      id="void-reason"
-      name="reason"
-      required
-      maxlength="255"
-      style="width:100%; padding:8px; border:1px solid #bfcbd5; border-radius:4px"
-    >
-
-    <button type="submit" style="margin-top:10px">
-      Void receipt
-    </button>
-
-  </form>
-{% endif %}
 
 {% if request.GET.print %}
   <script>
@@ -218,3 +135,4 @@
 {% endif %}
 
 {% endblock %}
+

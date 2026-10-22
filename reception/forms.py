@@ -1,4 +1,4 @@
-import re
+﻿import re
 
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, SetPasswordForm, UserCreationForm
@@ -78,17 +78,15 @@ class VisitForm(forms.ModelForm):
     
         }
 
-def clean_phone(self):
-    phone = self.cleaned_data.get("phone", "").strip()
+    def clean_phone(self):
+        phone = self.cleaned_data.get("phone", "").strip()
 
-    if phone and not re.fullmatch(r"0[67]\d{8}", phone):
-        raise forms.ValidationError(
-            "Phone number must contain exactly 10 digits and start with 06 or 07."
-        )
+        if phone and not re.fullmatch(r"0[67]\d{8}", phone):
+            raise forms.ValidationError(
+                "Phone number must contain exactly 10 digits and start with 06 or 07."
+            )
 
-    return phone
-        
-
+        return phone
 class ClinicAuthenticationForm(AuthenticationForm):
     """Use clear, role-neutral login feedback for the shared sign-in page."""
 
@@ -154,3 +152,4 @@ class SetupForm(forms.Form):
             elif receptionist_username:
                 validate_password(receptionist_password, User(username=receptionist_username))
         return cleaned_data
+
