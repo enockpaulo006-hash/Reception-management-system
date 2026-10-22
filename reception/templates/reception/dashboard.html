@@ -1,39 +1,113 @@
+﻿
 {% extends "reception/base.html" %}
 
-{% block title %}Dashboard — {{ CLINIC_NAME }}{% endblock %}
+{% block title %}Dashboard â€” {{ CLINIC_NAME }}{% endblock %}
 
 {% block content %}
-  {% if backup_warning %}<div class="message warning">{{ backup_warning }}</div>{% endif %}
-  <h1>Today’s dashboard <small style="font-size:13px;font-weight:400;color:#637282">{{ today|date:"d M Y" }}</small></h1>
+  {% if backup_warning %}
+    <div class="message warning">{{ backup_warning }}</div>
+  {% endif %}
+
+  <h1>
+    Today's dashboard
+    <small style="font-size:13px;font-weight:400;color:#637282">
+      {{ today|date:"d M Y" }}
+    </small>
+  </h1>
+
   <div class="cards">
-    <div class="card"><div class="card-label">Registered patients</div><div class="card-value">{{ visit_count }}</div></div>
-    <div class="card"><div class="card-label">Receipts</div><div class="card-value">{{ receipt_count }}</div></div>
-    <div class="card"><div class="card-label">Revenue</div><div class="card-value money">TZS {{ revenue_total }}</div></div>
-    <div class="card"><div class="card-label">Voided receipts</div><div class="card-value">{{ voided_count }}</div></div>
+    <div class="card">
+      <div class="card-label">Registered patients</div>
+      <div class="card-value">{{ visit_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Receipts</div>
+      <div class="card-value">{{ receipt_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Revenue</div>
+      <div class="card-value money">TZS {{ revenue_total }}</div>
+    </div>
   </div>
+
   <div class="panels">
     <section class="panel">
-      <div class="panel-head"><h2>Today’s receipts</h2></div>
+      <div class="panel-head">
+        <h2>Today's receipts</h2>
+      </div>
+
       <div class="panel-body">
         {% if payments %}
-          <table><thead><tr><th>Number</th><th>Time</th><th>Patient</th><th>Amount</th><th></th></tr></thead><tbody>
-          {% for payment in payments %}<tr class="{% if payment.voided %}voided{% endif %}">
-            <td>{{ payment.receipt_no }}</td><td>{{ payment.paid_at|time:"H:i" }}</td><td>{{ payment.visit.name }}</td><td>TZS {{ payment.total }}</td>
-            <td>{% if payment.voided %}<span class="pill">VOIDED</span>{% endif %} <a href="{% url 'receipt_detail' payment.receipt_no %}">View</a></td>
-          </tr>{% endfor %}
-          </tbody></table>
-        {% else %}<div class="empty">No receipts recorded today.</div>{% endif %}
+          <table>
+            <thead>
+              <tr>
+                <th>Number</th>
+                <th>Time</th>
+                <th>Patient</th>
+                <th>Amount</th>
+                <th></th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for payment in payments %}
+                <tr>
+                  <td>{{ payment.receipt_no }}</td>
+                  <td>{{ payment.paid_at|time:"H:i" }}</td>
+                  <td>{% if payment.visit.first_name or payment.visit.second_name %}{{ payment.visit.first_name }} {{ payment.visit.second_name }}{% else %}{{ payment.visit.name }}{% endif %}</td>
+                  <td>TZS {{ payment.total }}</td>
+                  <td>
+                    <a href="{% url 'receipt_detail' payment.receipt_no %}">
+                      View
+                    </a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty">No receipts recorded today.</div>
+        {% endif %}
       </div>
     </section>
+
     <section class="panel">
-      <div class="panel-head"><h2>Patients registered today</h2></div>
+      <div class="panel-head">
+        <h2>Patients registered today</h2>
+      </div>
+
       <div class="panel-body">
         {% if visits %}
-          <table><thead><tr><th>Patient</th><th>Time</th><th></th></tr></thead><tbody>
-          {% for visit in visits %}<tr><td>{{ visit.name }}</td><td>{{ visit.created_at|time:"H:i" }}</td><td><a href="{% url 'visit_pay' visit.pk %}">Take payment</a></td></tr>{% endfor %}
-          </tbody></table>
-        {% else %}<div class="empty">No patients registered today.</div>{% endif %}
+          <table>
+            <thead>
+              <tr>
+                <th>Patient</th>
+                <th>Time</th>
+                <th></th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for visit in visits %}
+                <tr>
+                  <td>{% if visit.first_name or visit.second_name %}{{ visit.first_name }} {{ visit.second_name }}{% else %}{{ visit.name }}{% endif %}</td>
+                  <td>{{ visit.created_at|time:"H:i" }}</td>
+                  <td>
+                    <a href="{% url 'visit_pay' visit.pk %}">
+                      Take payment
+                    </a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty">No patients registered today.</div>
+        {% endif %}
       </div>
     </section>
   </div>
 {% endblock %}
+
