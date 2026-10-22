@@ -1,9 +1,10 @@
-
+﻿
 {% extends "reception/base.html" %}
 
 {% block title %}Take payment - St. Pius Dispensary{% endblock %}
 
 {% block content %}
+
 <style>
   .take-payment-page { width: 100%; }
 
@@ -26,7 +27,8 @@
     align-items: start;
   }
 
-  .services-column, .receipt-column { min-width: 0; }
+  .services-column,
+  .receipt-column { min-width: 0; }
 
   .section-title {
     margin: 0 0 12px;
@@ -36,10 +38,9 @@
 
   .services-box {
     padding: 18px;
-    background: white;
+    background: #fff;
     border: 1px solid #cbd5df;
     border-radius: 5px;
-    box-sizing: border-box;
   }
 
   .service-category {
@@ -51,6 +52,7 @@
     color: #637282;
     font-size: 13px;
     margin: -5px 0 12px;
+    line-height: 1.5;
   }
 
   .service-list { margin-bottom: 22px; }
@@ -58,7 +60,6 @@
   .test-search {
     display: block;
     width: 100%;
-    box-sizing: border-box;
     padding: 10px 12px;
     margin-bottom: 10px;
     border: 1px solid #cbd5df;
@@ -101,9 +102,7 @@
     accent-color: #2878c8;
   }
 
-  .service-option input:disabled {
-    cursor: not-allowed;
-  }
+  .service-option input:disabled { cursor: not-allowed; }
 
   .service-option-name { overflow-wrap: anywhere; }
 
@@ -113,25 +112,26 @@
   }
 
   .service-option.is-disabled {
-    opacity: 0.45;
+    opacity: .45;
     cursor: not-allowed;
     background: #f5f6f7;
   }
 
-  .no-services, .no-search-results {
+  .no-services,
+  .no-search-results {
     color: #637282;
     padding: 10px 0;
   }
 
   .payment-status {
-    display: none;
     margin: 0 0 15px;
-    padding: 10px 12px;
+    padding: 12px;
     border: 1px solid #b9d5f0;
     border-radius: 5px;
     background: #eef6ff;
     color: #174a78;
     font-size: 14px;
+    line-height: 1.5;
   }
 
   .print-receipt-button {
@@ -150,6 +150,7 @@
   }
 
   .print-receipt-button:hover { background: #1e5f9e; }
+
   .print-receipt-button:disabled {
     opacity: .55;
     cursor: not-allowed;
@@ -160,7 +161,6 @@
   .receipt-paper {
     min-height: 400px;
     padding: 22px 20px;
-    box-sizing: border-box;
     background: #fff;
     border: 1px solid #cbd5df;
     border-radius: 3px;
@@ -198,14 +198,17 @@
     border-collapse: collapse;
   }
 
-  .receipt-items th, .receipt-items td {
+  .receipt-items th,
+  .receipt-items td {
     padding: 10px 3px;
     text-align: left;
     vertical-align: top;
     border-bottom: 1px dashed #cbd2d9;
+    white-space: normal;
   }
 
-  .receipt-items th:last-child, .receipt-items td:last-child {
+  .receipt-items th:last-child,
+  .receipt-items td:last-child {
     text-align: right;
     white-space: nowrap;
   }
@@ -261,7 +264,8 @@
   @media print {
     body * { visibility: hidden !important; }
 
-    #receipt-paper, #receipt-paper * {
+    #receipt-paper,
+    #receipt-paper * {
       visibility: visible !important;
     }
 
@@ -285,27 +289,22 @@
 <div class="take-payment-page">
   <h1 class="payment-title">
     Take payment
-    <small>({{ visit.name }})</small>
+    <small>{% if visit.first_name or visit.second_name %}{{ visit.first_name }} {{ visit.second_name }}{% else %}{{ visit.name }}{% endif %}</small>
   </h1>
 
   <div class="payment-layout">
     <section class="services-column">
       <h2 class="section-title">Services</h2>
 
-      <p class="payment-status" id="payment-status" role="status"></p>
-
       <form method="post" id="payment-form">
         {% csrf_token %}
 
         <div class="services-box">
           <h3 class="service-category">Consultation</h3>
-          <p class="category-help">
-            Select consultation services if the patient needs to pay for a consultation.
-          </p>
 
           <div class="service-list">
             {% for service in consultations %}
-              <label class="service-option">
+              <label class="service-option {% if not consultation_enabled %}is-disabled{% endif %}">
                 <span class="service-option-left">
                   <input
                     class="service-choice"
@@ -315,9 +314,11 @@
                     data-kind="CONSULT"
                     data-price="{{ service.price }}"
                     data-service-name="{{ service.name }}"
+                    {% if not consultation_enabled %}disabled{% endif %}
                   >
                   <span class="service-option-name">{{ service.name }}</span>
                 </span>
+
                 <span class="service-option-price">
                   TZS {{ service.price }}
                 </span>
@@ -330,9 +331,6 @@
           </div>
 
           <h3 class="service-category">Laboratory tests</h3>
-          <p class="category-help">
-            Select laboratory tests if the patient needs to pay for tests.
-          </p>
 
           <input
             type="search"
@@ -341,11 +339,12 @@
             placeholder="Search laboratory tests..."
             aria-label="Search laboratory tests"
             autocomplete="off"
+            {% if not tests_enabled %}disabled{% endif %}
           >
 
           <div class="test-list-scroll" id="test-list-scroll">
             {% for service in tests %}
-              <label class="service-option test-option">
+              <label class="service-option test-option {% if not tests_enabled %}is-disabled{% endif %}">
                 <span class="service-option-left">
                   <input
                     class="service-choice"
@@ -355,9 +354,11 @@
                     data-kind="TEST"
                     data-price="{{ service.price }}"
                     data-service-name="{{ service.name }}"
+                    {% if not tests_enabled %}disabled{% endif %}
                   >
                   <span class="service-option-name">{{ service.name }}</span>
                 </span>
+
                 <span class="service-option-price">
                   TZS {{ service.price }}
                 </span>
@@ -472,6 +473,7 @@
   const choices = Array.from(
     document.querySelectorAll(".service-choice")
   );
+
   const button = document.getElementById("print-receipt-button");
   const receiptList = document.getElementById("receipt-service-list");
   const testSearch = document.getElementById("test-search");
@@ -479,54 +481,18 @@
     document.querySelectorAll(".test-option")
   );
   const noSearchResults = document.getElementById("no-search-results");
-  const statusMessage = document.getElementById("payment-status");
   const liveTotal = document.getElementById("live-total");
   const receiptTotal = document.getElementById("receipt-total");
 
+  // These values come from the server's payment history for this attendance.
+  const consultationEnabled =
+    {{ consultation_enabled|yesno:"true,false" }};
+
+  const testsEnabled =
+    {{ tests_enabled|yesno:"true,false" }};
+
   function formatAmount(amount) {
     return amount.toLocaleString("en-US");
-  }
-
-  function getSelectedKind() {
-    const selected = choices.filter(function (item) {
-      return item.checked;
-    });
-
-    if (selected.length === 0) {
-      return null;
-    }
-
-    return selected[0].dataset.kind;
-  }
-
-  function updateCategoryAvailability() {
-    const selectedKind = getSelectedKind();
-
-    choices.forEach(function (item) {
-      const option = item.closest(".service-option");
-      const shouldDisable =
-        selectedKind !== null &&
-        item.dataset.kind !== selectedKind;
-
-      item.disabled = shouldDisable;
-
-      if (option) {
-        option.classList.toggle("is-disabled", shouldDisable);
-      }
-    });
-
-    if (selectedKind === "CONSULT") {
-      statusMessage.textContent =
-        "Consultation selected. Laboratory tests are disabled for this payment. Unselect all consultations to switch to tests.";
-      statusMessage.style.display = "block";
-    } else if (selectedKind === "TEST") {
-      statusMessage.textContent =
-        "Laboratory tests selected. Consultation services are disabled for this payment. Unselect all tests to switch to consultation.";
-      statusMessage.style.display = "block";
-    } else {
-      statusMessage.textContent = "";
-      statusMessage.style.display = "none";
-    }
   }
 
   function updateReceipt() {
@@ -571,11 +537,6 @@
     receiptTotal.textContent = formatAmount(total);
   }
 
-  function updatePaymentPage() {
-    updateCategoryAvailability();
-    updateReceipt();
-  }
-
   function filterTests() {
     const query = testSearch.value.trim().toLowerCase();
     let visibleCount = 0;
@@ -617,8 +578,25 @@
       });
   }
 
+  // The server decides which category is enabled.
+  // Selecting or unselecting services cannot unlock the other category.
   choices.forEach(function (item) {
-    item.addEventListener("change", updatePaymentPage);
+    const isConsultation = item.dataset.kind === "CONSULT";
+    const allowed = isConsultation
+      ? consultationEnabled
+      : testsEnabled;
+
+    if (!allowed) {
+      item.disabled = true;
+      item.checked = false;
+
+      const option = item.closest(".service-option");
+      if (option) {
+        option.classList.add("is-disabled");
+      }
+    }
+
+    item.addEventListener("change", updateReceipt);
   });
 
   testSearch.addEventListener("input", filterTests);
@@ -645,12 +623,25 @@
       alert(
         "Please select either consultation services or laboratory tests, not both."
       );
+      return;
+    }
+
+    const selectedKind = selected[0].dataset.kind;
+
+    if (
+      (selectedKind === "CONSULT" && !consultationEnabled) ||
+      (selectedKind === "TEST" && !testsEnabled)
+    ) {
+      event.preventDefault();
+      alert("This payment category is not currently available.");
     }
   });
 
   updateDateTime();
-  updatePaymentPage();
+  updateReceipt();
   filterTests();
 })();
 </script>
+
 {% endblock %}
+
