@@ -10,10 +10,11 @@ if not exist "%PYTHON%" (
   exit /b 1
 )
 
-if not exist "%ISCC%" (
-  echo Inno Setup 6 was not found: %ISCC%
-  exit /b 1
-)
+if exist "%ISCC%" goto :inno_found
+echo Inno Setup 6 was not found: %ISCC%
+exit /b 1
+
+:inno_found
 
 pushd "%PROJECT_ROOT%"
 "%PYTHON%" manage.py collectstatic --noinput || goto :error

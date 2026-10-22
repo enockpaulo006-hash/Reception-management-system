@@ -4,8 +4,8 @@ import os
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 
-PROJECT_ROOT = os.path.abspath(os.path.join(SPECDIR, ".."))
-ICON_PATH = os.path.join(SPECDIR, "app.ico")
+PROJECT_ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
+ICON_PATH = os.path.join(SPECPATH, "app.ico")
 
 # Templates, static assets, migrations, and management commands must be present
 # in the frozen one-directory application.

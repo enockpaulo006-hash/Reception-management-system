@@ -82,6 +82,8 @@ if os.environ.get('CLINIC_PRODUCTION') == '1':
     DATA_DIR = r'C:\ProgramData\ClinicReception\data'
     os.makedirs(DATA_DIR, exist_ok=True)
     DB_PATH = os.path.join(DATA_DIR, 'db.sqlite3')
+    LOG_DIR = r'C:\ProgramData\ClinicReception\logs'
+    os.makedirs(LOG_DIR, exist_ok=True)
 else:
     DB_PATH = BASE_DIR / 'db.sqlite3'
 
@@ -140,6 +142,26 @@ MAILERS = {
 }
 
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+if os.environ.get('CLINIC_PRODUCTION') == '1':
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'handlers': {
+            'clinic_file': {
+                'class': 'logging.FileHandler',
+                'filename': os.path.join(LOG_DIR, 'errors.log'),
+                'level': 'ERROR',
+            },
+        },
+        'loggers': {
+            'django.request': {
+                'handlers': ['clinic_file'],
+                'level': 'ERROR',
+                'propagate': False,
+            },
+        },
+    }
 
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'

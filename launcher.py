@@ -8,6 +8,23 @@ import webbrowser
 from pathlib import Path
 
 
+GUI_LOG_PATH = Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "ClinicReception" / "logs" / "launcher.log"
+
+
+def configure_gui_output():
+    """Give a windowed EXE writable streams and retain errors for support."""
+    if sys.stdout is None or sys.stderr is None:
+        try:
+            GUI_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            log_file = open(GUI_LOG_PATH, "a", encoding="utf-8")
+        except OSError:
+            log_file = open(os.devnull, "w", encoding="utf-8")
+        if sys.stdout is None:
+            sys.stdout = log_file
+        if sys.stderr is None:
+            sys.stderr = log_file
+
+
 def create_backup():
     from django.db import connection
     from django.utils import timezone
@@ -27,6 +44,7 @@ def create_backup():
 
 def run_application():
     from django.core.management import call_command
+    from clinic.wsgi import application
     from waitress import serve
 
     call_command("migrate", interactive=False, verbosity=0)
@@ -42,7 +60,7 @@ def run_application():
             break
     else:
         webbrowser.open(url)
-    serve("clinic.wsgi:application", host="127.0.0.1", port=8000)
+    serve(application, host="127.0.0.1", port=8000)
 
 
 def main():
@@ -52,6 +70,7 @@ def main():
     action.add_argument("--backup", action="store_true")
     args = parser.parse_args()
 
+    configure_gui_output()
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "clinic.settings")
     if getattr(sys, "frozen", False):
         os.environ.setdefault("CLINIC_PRODUCTION", "1")
