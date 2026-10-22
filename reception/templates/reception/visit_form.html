@@ -1,22 +1,106 @@
+
 {% extends "reception/base.html" %}
 
 {% block title %}New patient - {{ CLINIC_NAME }}{% endblock %}
 
 {% block content %}
-  <div class="panel" style="max-width:560px">
-    <div class="panel-head"><h1 style="margin:0">New patient</h1></div>
-    <div class="panel-body" style="padding:18px">
-      <form method="post">
-        {% csrf_token %}
+<div class="panel patient-panel">
+  <div class="panel-head">
+    <h1 style="margin:0">New patient</h1>
+  </div>
+
+  <div class="panel-body patient-form-body">
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="patient-grid">
         {% for field in form %}
-          <div style="margin-bottom:15px">
-            <label for="{{ field.id_for_label }}" style="display:block;margin-bottom:5px;font-weight:600">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+          <div class="patient-field
+            {% if field.name == 'sex' or field.name == 'gender' %}sex-field{% endif %}
+            {% if field.name == 'physical_address' or field.name == 'address' %}address-field{% endif %}">
+
+            <label for="{{ field.id_for_label }}">
+              {{ field.label }}{% if field.field.required %} *{% endif %}
+            </label>
+
             {{ field }}
-            {% for error in field.errors %}<div style="color:#8d2525;margin-top:4px">{{ error }}</div>{% endfor %}
+
+            {% for error in field.errors %}
+              <div class="field-error">{{ error }}</div>
+            {% endfor %}
           </div>
         {% endfor %}
-        <button type="submit">Save and take payment</button>
-      </form>
-    </div>
+      </div>
+
+      <div class="patient-form-actions">
+        <button type="submit">Next →</button>
+      </div>
+    </form>
   </div>
+</div>
+
+<style>
+  .patient-panel {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .patient-form-body {
+    padding: 28px;
+  }
+
+  .patient-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px 32px;
+  }
+
+  .patient-field label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+
+  .patient-field input,
+  .patient-field select,
+  .patient-field textarea {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 11px 12px;
+    border: 1px solid #b9c5d1;
+    border-radius: 6px;
+    font: inherit;
+  }
+
+  .patient-field input[type="radio"] {
+    width: auto;
+  }
+
+  .sex-field,
+  .address-field {
+    min-width: 0;
+  }
+
+  .field-error {
+    color: #8d2525;
+    margin-top: 4px;
+  }
+
+  .patient-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 28px;
+  }
+
+  @media (max-width: 600px) {
+    .patient-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .patient-form-body {
+      padding: 18px;
+    }
+  }
+</style>
 {% endblock %}
