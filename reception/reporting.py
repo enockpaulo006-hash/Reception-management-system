@@ -6,7 +6,8 @@ from .models import DayClose, Payment, PaymentItem, Visit
 
 
 def report_data(start_date, end_date):
-    """Return all owner report sections for the inclusive local-date range."""
+    """Return owner report data for the inclusive date range."""
+
     payments = Payment.objects.filter(
         paid_at__date__range=(start_date, end_date)
     )
@@ -54,8 +55,10 @@ def report_data(start_date, end_date):
         if highest_receipt
         else []
     )
+
     receipt_gaps = [
-        number for number in receipt_gaps
+        number
+        for number in receipt_gaps
         if number not in receipt_numbers
     ]
 
@@ -66,12 +69,12 @@ def report_data(start_date, end_date):
             created_at__date__range=(start_date, end_date)
         ).count(),
         "receipt_count": payments.count(),
-        "revenue_total": payments.aggregate(
-            total=Sum("total")
-        )["total"] or 0,
-        "reprint_count": payments.aggregate(
-            total=Sum("reprints")
-        )["total"] or 0,
+        "revenue_total": (
+            payments.aggregate(total=Sum("total"))["total"] or 0
+        ),
+        "reprint_count": (
+            payments.aggregate(total=Sum("reprints"))["total"] or 0
+        ),
         "daily_rows": daily_rows,
         "service_rows": service_rows,
         "receptionist_rows": receptionist_rows,
