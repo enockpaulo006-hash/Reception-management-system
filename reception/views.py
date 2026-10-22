@@ -95,19 +95,35 @@ def dashboard(request):
     return render(request, "reception/dashboard.html", context)
 
 
+
 @login_required
 def visit_new(request):
     if request.method == "POST":
         form = VisitForm(request.POST)
+
         if form.is_valid():
             visit = form.save(commit=False)
+
+            # Keep the existing full-name field for receipts and payments.
+            visit.name = (
+                f"{form.cleaned_data['first_name'].strip()} "
+                f"{form.cleaned_data['second_name'].strip()}"
+            ).strip()
+
             visit.created_by = request.user
             visit.save()
+
             log(request.user, "VISIT", f"Visit {visit.pk} registered")
             return redirect("visit_pay", pk=visit.pk)
     else:
         form = VisitForm()
-    return render(request, "reception/visit_form.html", {"form": form})
+
+    return render(
+        request,
+        "reception/visit_form.html",
+        {"form": form},
+    )
+
 
 
 @login_required
