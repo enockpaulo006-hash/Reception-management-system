@@ -7,15 +7,35 @@ from django.core.exceptions import ValidationError
 from .models import Visit
 
 
+
 class VisitForm(forms.ModelForm):
     class Meta:
         model = Visit
-        fields = ("name", "phone", "age", "sex")
+        fields = (
+            "first_name",
+            "second_name",
+            "phone",
+            "age",
+            "sex",
+            "physical_address",
+        )
+        labels = {
+            "first_name": "First name",
+            "second_name": "Second name",
+            "phone": "Phone",
+            "age": "Age",
+            "sex": "Sex",
+            "physical_address": "Physical address",
+        }
         widgets = {
-            "name": forms.TextInput(attrs={"autocomplete": "off"}),
+            "first_name": forms.TextInput(attrs={"autocomplete": "off"}),
+            "second_name": forms.TextInput(attrs={"autocomplete": "off"}),
             "phone": forms.TextInput(attrs={"autocomplete": "off"}),
             "age": forms.NumberInput(attrs={"min": 0}),
+            "sex": forms.RadioSelect(),
+            "physical_address": forms.TextInput(attrs={"autocomplete": "off"}),
         }
+
 
 
 class ClinicAuthenticationForm(AuthenticationForm):
