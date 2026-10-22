@@ -53,13 +53,13 @@ def next_receipt_no():
 
 def record_payment(visit, services, user):
     """
-    Record a payment while enforcing the daily payment sequence.
+    Record a payment using current server-side prices.
 
     Rules:
     - Consultation must be paid before laboratory tests.
     - Consultation can only be paid once per visit per local day.
-    - Laboratory tests can be paid multiple times after consultation.
-    - Consultation and laboratory tests must use separate receipts.
+    - Multiple laboratory test payments are allowed after consultation.
+    - Consultation and tests must be paid on separate receipts.
     """
     selected = list(services)
 
@@ -72,17 +72,17 @@ def record_payment(visit, services, user):
         raise ValidationError("Each selected service must be saved.")
 
     if len(service_ids) != len(set(service_ids)):
-        raise ValidationError("A service cannot be selected more than once.")
-
-    with transaction.atomic():
-        current_services = Service.objects.filter(
-            pk__in=service_ids,
-            active=True,
+        raise ValidationError(
+            "A service cannot be selected more than once on one receipt."
         )
 
+    with transaction.atomic():
         service_map = {
             service.pk: service
-            for service in current_services
+            for service in Service.objects.filter(
+                pk__in=service_ids,
+                active=True,
+            )
         }
 
         if len(service_map) != len(service_ids):
@@ -100,11 +100,12 @@ def record_payment(visit, services, user):
         if not kinds.issubset({"CONSULT", "TEST"}):
             raise ValidationError("An invalid service type was selected.")
 
-        if len(kinds) > 1:
+        if len(kinds) != 1:
             raise ValidationError(
                 "Pay consultation and laboratory tests on separate receipts."
             )
 
+        selected_kind = next(iter(kinds))
         today = timezone.localdate()
 
         consultation_paid_today = PaymentItem.objects.filter(
@@ -112,8 +113,6 @@ def record_payment(visit, services, user):
             payment__paid_at__date=today,
             service__kind="CONSULT",
         ).exists()
-
-        selected_kind = next(iter(kinds))
 
         if selected_kind == "TEST" and not consultation_paid_today:
             raise ValidationError(
@@ -170,5 +169,4 @@ def register_reprint(payment, user):
         )
 
         payment.reprints = stored_payment.reprints
-
         return stored_payment
