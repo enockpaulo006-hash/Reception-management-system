@@ -1,4 +1,4 @@
-﻿from django.contrib.auth.models import Group, User
+from django.contrib.auth.models import Group, User
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.management import call_command
 from django.db import IntegrityError, connection
@@ -279,6 +279,83 @@ class PaymentServiceTests(TestCase):
         self.assertContains(response, "Last backup is more than 24 hours old")
 
     def test_visit_payment_and_receipt_flow(self):
+        self.client.force_login(self.receptionist)
+
+        # Register the patient.
+        response = self.client.post(
+            reverse("visit_new"),
+            {
+                "action": "create_patient",
+                "first_name": "Neema",
+                "second_name": "John",
+                "phone": "",
+                "sex": "F",
+            },
+        )
+
+        patient = Patient.objects.get(
+            first_name="Neema",
+            second_name="John",
+        )
+        self.assertRedirects(
+            response,
+            f"{reverse('visit_new')}?patient={patient.pk}",
+        )
+
+        # Create a visit for the selected patient.
+        response = self.client.post(
+            f"{reverse('visit_new')}?patient={patient.pk}",
+            {"action": "age", "age": "28"},
+        )
+
+        visit = Visit.objects.get(patient=patient)
+        self.assertRedirects(response, reverse("visit_pay", args=[visit.pk]))
+        self.assertEqual(visit.created_by, self.receptionist)
+        self.assertEqual(visit.age, 28)
+        self.assertTrue(
+            AuditLog.objects.filter(
+                action="VISIT",
+                user=self.receptionist,
+            ).exists()
+        )
+
+        # Pay for consultation.
+        response = self.client.post(
+            reverse("visit_pay", args=[visit.pk]),
+            {"services": [self.consultation.pk]},
+        )
+        consultation_payment = Payment.objects.get(visit=visit)
+        self.assertRedirects(
+            response,
+            f"{reverse('receipt_detail', args=[consultation_payment.receipt_no])}?print=1",
+        )
+        self.assertEqual(consultation_payment.total, 10000)
+
+        # Pay for a test after consultation.
+        response = self.client.post(
+            reverse("visit_pay", args=[visit.pk]),
+            {"services": [self.test_service.pk]},
+        )
+        test_payment = Payment.objects.get(
+            visit=visit,
+            items__service=self.test_service,
+        )
+        self.assertRedirects(
+            response,
+            f"{reverse('receipt_detail', args=[test_payment.receipt_no])}?print=1",
+        )
+        self.assertEqual(test_payment.total, 5000)
+
+        # Verify the consultation receipt.
+        receipt = self.client.get(
+            reverse("receipt_detail", args=[consultation_payment.receipt_no])
+        )
+        self.assertContains(receipt, "Receipt: 000001")
+        self.assertContains(receipt, "Neema")
+        self.assertContains(receipt, "TOTAL")
+        self.assertContains(receipt, "Cash received")
+
+    def test_visit_form_validates_required_fields(self):
         self.client.force_login(self.receptionist)
 
         response = self.client.post(
@@ -565,71 +642,4 @@ class FirstRunSetupTests(TestCase):
 
         self.assertTrue(self.client.login(username="recover", password="new-password-123"))
         self.assertTrue(AuditLog.objects.filter(action="PASSWORD_RESET", user=user).exists())
-
-
-    
-  
-from django.contrib.auth.models import Group, User
-from django.core.exceptions import PermissionDenied, ValidationError
-from django.core.management import call_command
-from django.db import IntegrityError, connection
-from django.test import TestCase, override_settings
-from django.urls import reverse
-from django.utils import timezone
-from openpyxl import load_workbook
-from io import BytesIO
-from pathlib import Path
-from tempfile import TemporaryDirectory
-from unittest.mock import patch
-from datetime import timedelta
-
-from .models import AuditLog, DayClose, Patient, Payment, Service, Setting, Visit
-from .services import next_receipt_no, record_payment, register_reprint
-
-
-class PaymentServiceTests(TestCase):
-    def setUp(self):
-        self.receptionist = User.objects.create_user("receptionist")
-        self.owner = User.objects.create_user("owner")
-        self.owner.groups.add(Group.objects.create(name="Owner"))
-        self.visit = Visit.objects.create(
-            name="Asha", age=30, sex="F", created_by=self.receptionist
-        )
-        self.consultation = Service.objects.create(
-            name="Consultation", kind="CONSULT", price=10000
-        )
-        self.test_service = Service.objects.create(
-            name="Blood test", kind="TEST", price=5000
-        )
-
-    def make_payment(self):
-        # Each receipt contains one payment category. Consultation must be paid first.
-        record_payment(self.visit, [self.consultation], self.receptionist)
-        return record_payment(self.visit, [self.test_service], self.receptionist)
-
-    def test_receipt_numbers_are_sequential(self):
-        self.assertEqual(next_receipt_no(), 1)
-        self.assertEqual(next_receipt_no(), 2)
-
-    def test_tests_cannot_be_paid_before_consultation(self):
-        with self.assertRaises(ValidationError):
-            record_payment(self.visit, [self.test_service], self.receptionist)
-        self.assertEqual(Payment.objects.count(), 0)
-
-    def test_total_is_calculated_from_price_list_and_categories_have_separate_receipts(self):
-        consultation_payment = record_payment(
-            self.visit, [self.consultation], self.receptionist
-        )
-        test_payment = record_payment(
-            self.visit, [self.test_service], self.receptionist
-        )
-        self.assertEqual(consultation_payment.total, 10000)
-        self.assertEqual(test_payment.total, 5000)
-        self.assertEqual(Payment.objects.filter(visit=self.visit).count(), 2)
-        self.assertEqual(
-            list(consultation_payment.items.values_list("price", flat=True)), [10000]
-        )
-        self.assertEqual(
-            list(test_payment.items.values_list("price", flat=True)), [5000]
-        )
 
