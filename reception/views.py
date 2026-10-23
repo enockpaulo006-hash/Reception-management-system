@@ -203,7 +203,8 @@ def patient_detail(request, pk):
     else:
         form = PatientEditForm(initial={"first_name": patient.first_name or patient.name.split(" ", 1)[0], "second_name": patient.second_name or (patient.name.split(" ", 1)[1] if " " in patient.name else ""), "phone": patient.phone})
     visits = patient.visits.select_related("created_by").prefetch_related("payments__items").order_by("-created_at")
-    return render(request, "reception/patient_detail.html", {"patient": patient, "visits": visits, "form": form, "total_paid": sum(payment.total for visit in visits for payment in visit.payments.all())})
+    payments = Payment.objects.filter(visit__patient=patient).select_related("received_by").prefetch_related("items").order_by("-paid_at")
+    return render(request, "reception/patient_detail.html", {"patient": patient, "visits": visits, "payments": payments, "form": form, "total_paid": sum(payment.total for payment in payments)})
 
 
 @login_required
