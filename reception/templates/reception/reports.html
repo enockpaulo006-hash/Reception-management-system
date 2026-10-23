@@ -1,1 +1,273 @@
-{% extends "reception/base.html" %}{% block content %}<div class="page-header"><div><div class="breadcrumbs">Dashboard <span>›</span> Reports</div><h1>Reports</h1><p class="page-subtitle">Review clinic activity and daily cash reconciliation.</p></div></div><section class="panel no-print"><form class="filter-bar" method="get"><a class="button button-secondary" href="?">Since last visit</a><a class="button button-secondary" href="?period=month">This month</a><a class="button button-secondary" href="?period=last_month">Last month</a><label>From<input type="date" name="start" value="{{ start_date|date:'Y-m-d' }}"></label><label>To<input type="date" name="end" value="{{ end_date|date:'Y-m-d' }}"></label><button>Apply</button><a class="button button-secondary" href="{% url 'reports_export' %}?start={{ start_date|date:'Y-m-d' }}&end={{ end_date|date:'Y-m-d' }}">Export Excel</a><button class="button-secondary" type="button" onclick="window.print()">Print</button></form></section><p>Since your last visit{% if since_last_visit %} on {{ since_last_visit|date:"d M Y" }}{% endif %}: <strong>TZS {{ revenue_total }}</strong> from <strong>{{ receipt_count }} receipts</strong>. Receipt reprints:</strong> {{ reprint_count|default:0 }}</p><div class="cards"><div class="card"><div class="card-label">Money received</div><div class="card-value money">TZS {{ revenue_total }}</div></div><div class="card"><div class="card-label">Receipts</div><div class="card-value">{{ receipt_count }}</div></div><div class="card"><div class="card-label">Visits</div><div class="card-value">{{ visit_count }}</div></div><div class="card"><div class="card-label">Average per day</div><div class="card-value money">TZS {{ average_per_day }}</div></div></div><p>Comparison: TZS {{ revenue_difference }}{% if revenue_percentage != None %} ({{ revenue_percentage }}%){% endif %}.</p><section class="panel"><div class="panel-head"><h2>Money received per {{ grouping }}</h2></div><div class="panel-body"><svg width="100%" height="80" viewBox="0 0 600 80" aria-label="Revenue chart">{% for row in chart_rows %}<rect x="{{ forloop.counter0 }}0" y="10" width="8" height="60" fill="#2563eb"></rect>{% endfor %}</svg><p><a href="?start={{ start_date|date:'Y-m-d' }}&end={{ end_date|date:'Y-m-d' }}&view=months">Months view</a></p></div></section><section class="panel" style="margin-top:20px"><div class="panel-head"><h2>Each day</h2></div><div class="panel-body flush"><table><thead><tr><th>Date</th><th>Receipts</th><th>Money received</th><th>Cash counted</th><th>Difference</th><th>Status</th></tr></thead><tbody>{% for row in each_day %}<tr><td><a href="{% url 'report_day' row.day|date:'Y-m-d' %}">{{ row.day|date:"d M Y" }}</a></td><td>{{ row.receipts }}</td><td>TZS {{ row.revenue }}</td><td>{% if row.close %}TZS {{ row.close.counted_cash }}{% endif %}</td><td>{{ row.difference }}</td><td><span class="badge">{{ row.status }}</span></td></tr>{% endfor %}</tbody></table></div></section><section class="panel" style="margin-top:20px"><div class="panel-head"><h2>By receptionist</h2></div><div class="panel-body flush"><table><tr><th>Receptionist</th><th>Receipts</th><th>Money</th></tr>{% for row in receptionist_rows %}<tr><td>{{ row.received_by__username }}</td><td>{{ row.count }}</td><td>TZS {{ row.revenue }}</td></tr>{% endfor %}</table></div></section><section class="panel" style="margin-top:20px"><div class="panel-head"><h2>By service</h2></div><div class="panel-body flush"><table><tr><th>Service</th><th>Count</th><th>Money</th></tr>{% for row in service_rows %}<tr><td>{{ row.name }}</td><td>{{ row.count }}</td><td>TZS {{ row.revenue }}</td></tr>{% endfor %}</table></div></section><section class="panel" style="margin-top:20px"><div class="panel-head"><h2>Check these</h2></div><div class="panel-body">{% if receipt_gaps %}<p>Missing: {{ receipt_gaps|join:', ' }}</p>{% endif %}{% for row in each_day %}{% if row.difference %}<p>{{ row.day }} has a cash difference.</p>{% elif not row.close and row.receipts %}<p>{{ row.day }} is not closed.</p>{% endif %}{% empty %}<p>All good</p>{% endfor %}</div></section>{% endblock %}
+{% extends "reception/base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="breadcrumbs">Dashboard <span>›</span> Reports</div>
+        <h1>Reports</h1>
+        <p class="page-subtitle">
+            Review clinic activity and daily cash reconciliation.
+        </p>
+    </div>
+</div>
+
+<section class="panel no-print">
+    <form class="filter-bar" method="get">
+        <a class="button button-secondary" href="?">Since last visit</a>
+        <a class="button button-secondary" href="?period=month">This month</a>
+        <a class="button button-secondary" href="?period=last_month">Last month</a>
+
+        <label>
+            From
+            <input
+                type="date"
+                name="start"
+                value="{{ start_date|date:'Y-m-d' }}"
+            >
+        </label>
+
+        <label>
+            To
+            <input
+                type="date"
+                name="end"
+                value="{{ end_date|date:'Y-m-d' }}"
+            >
+        </label>
+
+        <button type="submit">Apply</button>
+
+        <a
+            class="button button-secondary"
+            href="{% url 'reports_export' %}?start={{ start_date|date:'Y-m-d' }}&end={{ end_date|date:'Y-m-d' }}"
+        >
+            Export Excel
+        </a>
+
+        <button
+            class="button-secondary"
+            type="button"
+            onclick="window.print()"
+        >
+            Print
+        </button>
+    </form>
+</section>
+
+<p>
+    Since your last visit{% if since_last_visit %} on {{ since_last_visit|date:"d M Y" }}{% endif %}:
+    <strong>TZS {{ revenue_total }}</strong> from
+    <strong>{{ receipt_count }} receipts</strong>.
+    Receipt reprints:</strong> {{ reprint_count|default:0 }}
+</p>
+
+<div class="cards">
+    <div class="card">
+        <div class="card-label">Money received</div>
+        <div class="card-value money">TZS {{ revenue_total }}</div>
+    </div>
+
+    <div class="card">
+        <div class="card-label">Receipts</div>
+        <div class="card-value">{{ receipt_count }}</div>
+    </div>
+
+    <div class="card">
+        <div class="card-label">Visits</div>
+        <div class="card-value">{{ visit_count }}</div>
+    </div>
+
+    <div class="card">
+        <div class="card-label">Average per day</div>
+        <div class="card-value money">TZS {{ average_per_day }}</div>
+    </div>
+</div>
+
+<p>
+    Comparison: TZS {{ revenue_difference }}
+    {% if revenue_percentage != None %}
+        ({{ revenue_percentage }}%)
+    {% endif %}.
+</p>
+
+<section class="panel">
+    <div class="panel-head">
+        <h2>Money received per {{ grouping }}</h2>
+    </div>
+
+    <div class="panel-body">
+        <svg
+            width="100%"
+            height="80"
+            viewBox="0 0 600 80"
+            aria-label="Revenue chart"
+        >
+            {% for row in chart_rows %}
+                <rect
+                    x="{{ forloop.counter0 }}0"
+                    y="10"
+                    width="8"
+                    height="60"
+                    fill="#2563eb"
+                ></rect>
+            {% endfor %}
+        </svg>
+
+        <p>
+            <a href="?start={{ start_date|date:'Y-m-d' }}&end={{ end_date|date:'Y-m-d' }}&view=months">
+                Months view
+            </a>
+        </p>
+    </div>
+</section>
+
+<section class="panel" style="margin-top:20px">
+    <div class="panel-head">
+        <h2>Each day</h2>
+    </div>
+
+    <div class="panel-body flush">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Receipts</th>
+                    <th>Money received</th>
+                    <th>Cash counted</th>
+                    <th>Difference</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for row in each_day %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'report_day' row.day|date:'Y-m-d' %}">
+                                {{ row.day|date:"d M Y" }}
+                            </a>
+                        </td>
+
+                        <td>{{ row.receipts }}</td>
+                        <td>TZS {{ row.revenue }}</td>
+
+                        <td>
+                            {% if row.close %}
+                                TZS {{ row.close.counted_cash }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if row.difference != None %}
+                                TZS {{ row.difference }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <span class="badge">{{ row.status }}</span>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6">No report data for this period.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="panel" style="margin-top:20px">
+    <div class="panel-head">
+        <h2>By receptionist</h2>
+    </div>
+
+    <div class="panel-body flush">
+        <table>
+            <thead>
+                <tr>
+                    <th>Receptionist</th>
+                    <th>Receipts</th>
+                    <th>Money</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for row in receptionist_rows %}
+                    <tr>
+                        <td>{{ row.received_by__username }}</td>
+                        <td>{{ row.count }}</td>
+                        <td>TZS {{ row.revenue }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="3">No receptionist activity for this period.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="panel" style="margin-top:20px">
+    <div class="panel-head">
+        <h2>By service</h2>
+    </div>
+
+    <div class="panel-body flush">
+        <table>
+            <thead>
+                <tr>
+                    <th>Service</th>
+                    <th>Count</th>
+                    <th>Money</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for row in service_rows %}
+                    <tr>
+                        <td>{{ row.name }}</td>
+                        <td>{{ row.count }}</td>
+                        <td>TZS {{ row.revenue }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="3">No services recorded for this period.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="panel" style="margin-top:20px">
+    <div class="panel-head">
+        <h2>Check these</h2>
+    </div>
+
+    <div class="panel-body">
+        {% if receipt_gaps %}
+            <p>Missing receipts: {{ receipt_gaps|join:', ' }}</p>
+        {% endif %}
+
+        {% for row in each_day %}
+            {% if row.difference %}
+                <p>
+                    {{ row.day|date:"d M Y" }} has a cash difference.
+                </p>
+            {% elif not row.close and row.receipts %}
+                <p>
+                    {{ row.day|date:"d M Y" }} is not closed.
+                </p>
+            {% endif %}
+        {% empty %}
+            <p>No report data to check.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}
