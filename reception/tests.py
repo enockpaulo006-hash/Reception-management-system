@@ -567,4 +567,69 @@ class FirstRunSetupTests(TestCase):
         self.assertTrue(AuditLog.objects.filter(action="PASSWORD_RESET", user=user).exists())
 
 
+    
+  
+from django.contrib.auth.models import Group, User
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.management import call_command
+from django.db import IntegrityError, connection
+from django.test import TestCase, override_settings
+from django.urls import reverse
+from django.utils import timezone
+from openpyxl import load_workbook
+from io import BytesIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
+from datetime import timedelta
+
+from .models import AuditLog, DayClose, Patient, Payment, Service, Setting, Visit
+from .services import next_receipt_no, record_payment, register_reprint
+
+
+class PaymentServiceTests(TestCase):
+    def setUp(self):
+        self.receptionist = User.objects.create_user("receptionist")
+        self.owner = User.objects.create_user("owner")
+        self.owner.groups.add(Group.objects.create(name="Owner"))
+        self.visit = Visit.objects.create(
+            name="Asha", age=30, sex="F", created_by=self.receptionist
+        )
+        self.consultation = Service.objects.create(
+            name="Consultation", kind="CONSULT", price=10000
+        )
+        self.test_service = Service.objects.create(
+            name="Blood test", kind="TEST", price=5000
+        )
+
+    def make_payment(self):
+        # Each receipt contains one payment category. Consultation must be paid first.
+        record_payment(self.visit, [self.consultation], self.receptionist)
+        return record_payment(self.visit, [self.test_service], self.receptionist)
+
+    def test_receipt_numbers_are_sequential(self):
+        self.assertEqual(next_receipt_no(), 1)
+        self.assertEqual(next_receipt_no(), 2)
+
+    def test_tests_cannot_be_paid_before_consultation(self):
+        with self.assertRaises(ValidationError):
+            record_payment(self.visit, [self.test_service], self.receptionist)
+        self.assertEqual(Payment.objects.count(), 0)
+
+    def test_total_is_calculated_from_price_list_and_categories_have_separate_receipts(self):
+        consultation_payment = record_payment(
+            self.visit, [self.consultation], self.receptionist
+        )
+        test_payment = record_payment(
+            self.visit, [self.test_service], self.receptionist
+        )
+        self.assertEqual(consultation_payment.total, 10000)
+        self.assertEqual(test_payment.total, 5000)
+        self.assertEqual(Payment.objects.filter(visit=self.visit).count(), 2)
+        self.assertEqual(
+            list(consultation_payment.items.values_list("price", flat=True)), [10000]
+        )
+        self.assertEqual(
+            list(test_payment.items.values_list("price", flat=True)), [5000]
+        )
 
