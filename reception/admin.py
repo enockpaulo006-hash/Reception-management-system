@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AuditLog, DayClose, Payment, PaymentItem, Service, Visit
+from .models import DayClose, Patient, Payment, PaymentItem, Service, Visit
 
 
 admin.site.register(Service)
@@ -20,7 +20,7 @@ class ReadOnlyAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Visit, ReadOnlyAdmin)
+admin.site.register(Patient, ReadOnlyAdmin)
 admin.site.register(Payment, ReadOnlyAdmin)
 admin.site.register(PaymentItem, ReadOnlyAdmin)
 admin.site.register(DayClose, ReadOnlyAdmin)
-admin.site.register(AuditLog, ReadOnlyAdmin)

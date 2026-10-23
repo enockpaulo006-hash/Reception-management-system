@@ -71,6 +71,7 @@
 
     body,
     .app,
+    .app-shell,
     .shell,
     main {
       display: block !important;
@@ -100,7 +101,7 @@
   <div>Receipt: {{ payment.receipt_no|stringformat:"06d" }}</div>
   <div>Date: {{ payment.paid_at|date:"d M Y" }}</div>
   <div>Time: {{ payment.paid_at|time:"H:i" }}</div>
-  <div>Patient: {% if payment.visit.first_name or payment.visit.second_name %}{{ payment.visit.first_name }} {{ payment.visit.second_name }}{% else %}{{ payment.visit.name }}{% endif %}</div>
+  <div>Patient: <a href="{% url 'patient_detail' payment.visit.patient.pk %}">{{ payment.visit.patient.name }}</a></div>
   <div>Served by: {{ payment.received_by.get_username }}</div>
 
   <hr class="receipt-rule">

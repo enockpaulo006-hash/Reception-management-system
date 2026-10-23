@@ -27,6 +27,8 @@ urlpatterns = [
     ),
 
     path("visit/new/", views.visit_new, name="visit_new"),
+    path("patients/", views.patient_list, name="patient_list"),
+    path("patients/<int:pk>/", views.patient_detail, name="patient_detail"),
     path("visit/<int:pk>/pay/", views.visit_pay, name="visit_pay"),
 
     path(
@@ -62,11 +64,12 @@ urlpatterns = [
     path("day/close/", views.day_close, name="day_close"),
 
     path("reports/", views.reports, name="reports"),
+    path("reports/day/<str:report_date>/", views.report_day, name="report_day"),
     path(
         "reports/export/",
         views.reports_export,
         name="reports_export",
     ),
-
     path("audit/", views.audit_log, name="audit_log"),
+
 ]

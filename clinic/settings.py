@@ -170,3 +170,5 @@ LOGOUT_REDIRECT_URL = '/login/'
 SESSION_COOKIE_AGE = 600             # auto logout after 10 idle minutes
 SESSION_SAVE_EVERY_REQUEST = True
 
+SHOW_AUDIT_LOG = False
+

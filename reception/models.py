@@ -27,6 +27,25 @@ class Setting(models.Model):
     value = models.CharField(max_length=255)
 
 
+class ClinicSettings(models.Model):
+    last_report_open = models.DateField(null=True, blank=True)
+    previous_report_open = models.DateField(null=True, blank=True)
+
+
+class Patient(models.Model):
+    SEX = [("M", "Male"), ("F", "Female")]
+    name = models.CharField(max_length=120)
+    first_name = models.CharField(max_length=60, blank=True, default="")
+    second_name = models.CharField(max_length=60, blank=True, default="")
+    phone = models.CharField(max_length=20, blank=True)
+    sex = models.CharField(max_length=1, choices=SEX)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+")
+
+    def delete(self, *args, **kwargs):
+        raise PermissionDenied("Patients cannot be deleted.")
+
+
 class Visit(models.Model):
     SEX = [
         ("M", "Male"),
@@ -51,6 +70,20 @@ class Visit(models.Model):
         on_delete=models.PROTECT,
         related_name="+",
     )
+    patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name="visits")
+
+    def save(self, *args, **kwargs):
+        # Keeps direct programmatic creation compatible while every saved visit
+        # remains linked to an immutable patient record.
+        if not self.patient_id:
+            patient_name = self.name or " ".join(
+                value for value in (self.first_name, self.second_name) if value
+            ).strip()
+            self.patient, _ = Patient.objects.get_or_create(
+                name=patient_name, phone=self.phone, sex=self.sex,
+                defaults={"created_by": self.created_by},
+            )
+        super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
         raise PermissionDenied("Visits cannot be deleted.")

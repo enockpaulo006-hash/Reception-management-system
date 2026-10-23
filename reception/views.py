@@ -9,12 +9,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group, User
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Q, Sum
+from django.core.paginator import Paginator
+from django.db.models import Count, Max, Q, Sum
 from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-from openpyxl.styles import Font
+from django.conf import settings
 
 from .clinic_settings import set_clinic_name
 from .forms import (
@@ -22,9 +23,9 @@ from .forms import (
     ReceptionistCreationForm,
     SetupForm,
     UserPasswordResetForm,
-    VisitForm,
+    PatientEditForm, PatientForm, VisitAgeForm,
 )
-from .models import AuditLog, DayClose, Payment, Service, Visit
+from .models import AuditLog, ClinicSettings, DayClose, Patient, Payment, Service, Visit
 from .reporting import report_data
 from .services import (
     is_owner,
@@ -125,10 +126,10 @@ def _backup_warning():
 def dashboard(request):
     today = timezone.localdate()
 
-    today_visits = Visit.objects.filter(created_at__date=today)
+    today_visits = Visit.objects.filter(created_at__date=today).select_related("patient")
     today_payments = Payment.objects.filter(
         paid_at__date=today
-    ).select_related("visit")
+    ).select_related("visit__patient")
 
     context = {
         "today": today,
@@ -147,21 +148,62 @@ def dashboard(request):
 
 @login_required
 def visit_new(request):
+    selected_patient = None
+    if request.GET.get("patient"):
+        selected_patient = get_object_or_404(Patient, pk=request.GET["patient"])
     if request.method == "POST":
-        form = VisitForm(request.POST)
+        action = request.POST.get("action")
+        if action == "choose":
+            return redirect(f"{redirect('visit_new').url}?patient={request.POST['patient']}")
+        if action == "create_patient":
+            patient_form = PatientForm(request.POST)
+            if patient_form.is_valid():
+                name = patient_form.full_name()
+                duplicate = Patient.objects.filter(name=name, phone=patient_form.cleaned_data["phone"]).first()
+                if duplicate:
+                    messages.warning(request, "A patient with this name and phone already exists. Use the existing patient instead.")
+                    return render(request, "reception/visit_form.html", {"patient_form": patient_form, "duplicate": duplicate})
+                patient = Patient.objects.create(name=name, first_name=patient_form.cleaned_data["first_name"], second_name=patient_form.cleaned_data["second_name"], phone=patient_form.cleaned_data["phone"], sex=patient_form.cleaned_data["sex"], created_by=request.user)
+                return redirect(f"{redirect('visit_new').url}?patient={patient.pk}")
+        elif action == "age" and selected_patient:
+            age_form = VisitAgeForm(request.POST)
+            if age_form.is_valid():
+                visit = Visit.objects.create(patient=selected_patient, name=selected_patient.name, phone=selected_patient.phone, sex=selected_patient.sex, age=age_form.cleaned_data["age"], created_by=request.user)
+                log(request.user, "VISIT", f"Visit {visit.pk} registered")
+                return redirect("visit_pay", pk=visit.pk)
+        else:
+            age_form = VisitAgeForm()
+    query = request.GET.get("q", "").strip()
+    patients = Patient.objects.filter(Q(name__icontains=query) | Q(phone__icontains=query)).order_by("name") if query else Patient.objects.none()
+    return render(request, "reception/visit_form.html", {"patients": patients, "query": query, "selected_patient": selected_patient, "patient_form": locals().get("patient_form", PatientForm()), "age_form": locals().get("age_form", VisitAgeForm())})
 
+
+@login_required
+def patient_list(request):
+    query = request.GET.get("q", "").strip()
+    patients = Patient.objects.annotate(last_visit=Max("visits__created_at"), visit_count=Count("visits"), total_paid=Sum("visits__payments__total"))
+    if query:
+        patients = patients.filter(Q(name__icontains=query) | Q(phone__icontains=query))
+    page = Paginator(patients.order_by("name"), 25).get_page(request.GET.get("page"))
+    return render(request, "reception/patient_list.html", {"page_obj": page, "query": query})
+
+
+@login_required
+def patient_detail(request, pk):
+    patient = get_object_or_404(Patient, pk=pk)
+    if request.method == "POST":
+        form = PatientEditForm(request.POST)
         if form.is_valid():
-            visit = form.save(commit=False)
-            visit.created_by = request.user
-            visit.save()
-
-            log(request.user, "VISIT", f"Visit {visit.pk} registered")
-
-            return redirect("visit_pay", pk=visit.pk)
+            patient.first_name = form.cleaned_data["first_name"]
+            patient.second_name = form.cleaned_data["second_name"]
+            patient.name = f"{patient.first_name.strip()} {patient.second_name.strip()}".strip()
+            patient.phone = form.cleaned_data["phone"]
+            patient.save(update_fields=["first_name", "second_name", "name", "phone"])
+            return redirect("patient_detail", pk=pk)
     else:
-        form = VisitForm()
-
-    return render(request, "reception/visit_form.html", {"form": form})
+        form = PatientEditForm(initial={"first_name": patient.first_name or patient.name.split(" ", 1)[0], "second_name": patient.second_name or (patient.name.split(" ", 1)[1] if " " in patient.name else ""), "phone": patient.phone})
+    visits = patient.visits.select_related("created_by").prefetch_related("payments__items").order_by("-created_at")
+    return render(request, "reception/patient_detail.html", {"patient": patient, "visits": visits, "form": form, "total_paid": sum(payment.total for visit in visits for payment in visit.payments.all())})
 
 
 @login_required
@@ -430,7 +472,7 @@ def visit_pay(request, pk):
 def receipt_detail(request, no):
     payment = get_object_or_404(
         Payment.objects.select_related(
-            "visit",
+            "visit__patient",
             "received_by",
         ).prefetch_related("items"),
         receipt_no=no,
@@ -564,16 +606,34 @@ def _report_dates(request):
 
 @owner_required
 def reports(request):
-    start_date, end_date = _report_dates(request)
+    today = timezone.localdate()
+    settings_row, _ = ClinicSettings.objects.get_or_create(pk=1)
+    if settings_row.last_report_open != today:
+        settings_row.previous_report_open = settings_row.last_report_open
+        settings_row.last_report_open = today
+        settings_row.save(update_fields=["previous_report_open", "last_report_open"])
+    if request.GET.get("period") == "month":
+        start_date, end_date = today.replace(day=1), today
+    elif request.GET.get("period") == "last_month":
+        end_date = today.replace(day=1) - timedelta(days=1); start_date = end_date.replace(day=1)
+    elif "start" in request.GET or "end" in request.GET:
+        start_date, end_date = _report_dates(request)
+    else:
+        start_date = settings_row.previous_report_open or (today - timedelta(days=6)); end_date = today
+    data = report_data(start_date, end_date)
+    data["since_last_visit"] = settings_row.previous_report_open
+    return render(request, "reception/reports.html", data)
 
-    return render(
-        request,
-        "reception/reports.html",
-        report_data(start_date, end_date),
-    )
+
+@owner_required
+def report_day(request, report_date):
+    selected = get_object_or_404(DayClose, date=report_date) if False else date.fromisoformat(report_date)
+    payments = Payment.objects.filter(paid_at__date=selected).select_related("visit__patient", "received_by").prefetch_related("items")
+    return render(request, "reception/report_day.html", {"day": selected, "payments": payments})
 
 
 def _add_sheet(workbook, title, headers, rows):
+    from openpyxl.styles import Font
     sheet = workbook.create_sheet(title)
     sheet.append(headers)
 
@@ -698,8 +758,12 @@ def reports_export(request):
     return response
 
 
-@owner_required
 def audit_log(request):
+    if not settings.SHOW_AUDIT_LOG:
+        raise Http404
+    if not is_owner(request.user):
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Owner access is required.")
     selected_date = request.GET.get("date", "")
     selected_action = request.GET.get("action", "")
 

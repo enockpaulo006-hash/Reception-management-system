@@ -12,7 +12,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from datetime import timedelta
 
-from .models import AuditLog, DayClose, Payment, Service, Setting, Visit
+from .models import AuditLog, DayClose, Patient, Payment, Service, Setting, Visit
 from .services import next_receipt_no, record_payment, register_reprint
 
 
@@ -351,6 +351,35 @@ class PaymentServiceTests(TestCase):
                 response = self.client.get(url)
                 self.assertEqual(response.status_code, 302)
                 self.assertIn(reverse("login"), response.url)
+
+
+class PatientRegistrationTests(TestCase):
+    def setUp(self):
+        self.receptionist = User.objects.create_user("receptionist")
+        self.client.force_login(self.receptionist)
+
+    def test_registration_collects_first_and_last_name(self):
+        response = self.client.get(reverse("visit_new"))
+
+        self.assertContains(response, "First name")
+        self.assertContains(response, "Last name")
+
+        response = self.client.post(
+            reverse("visit_new"),
+            {
+                "action": "create_patient",
+                "first_name": "Neema",
+                "second_name": "John",
+                "phone": "",
+                "sex": "F",
+            },
+        )
+
+        patient = Patient.objects.get()
+        self.assertEqual(patient.first_name, "Neema")
+        self.assertEqual(patient.second_name, "John")
+        self.assertEqual(patient.name, "Neema John")
+        self.assertRedirects(response, f"{reverse('visit_new')}?patient={patient.pk}")
 
 
 @override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])

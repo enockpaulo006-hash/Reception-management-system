@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
-from .models import Visit
+from .models import Patient, Visit
 
 
 
@@ -87,6 +87,26 @@ class VisitForm(forms.ModelForm):
             )
 
         return phone
+
+
+class PatientForm(forms.Form):
+    first_name = forms.CharField(max_length=60, label="First name")
+    second_name = forms.CharField(max_length=60, label="Last name")
+    phone = forms.CharField(max_length=20, required=False)
+    sex = forms.ChoiceField(choices=Patient.SEX)
+
+    def full_name(self):
+        return f"{self.cleaned_data['first_name'].strip()} {self.cleaned_data['second_name'].strip()}".strip()
+
+
+class VisitAgeForm(forms.Form):
+    age = forms.IntegerField(min_value=0)
+
+
+class PatientEditForm(forms.Form):
+    first_name = forms.CharField(max_length=60, label="First name")
+    second_name = forms.CharField(max_length=60, label="Last name")
+    phone = forms.CharField(max_length=20, required=False)
 class ClinicAuthenticationForm(AuthenticationForm):
     """Use clear, role-neutral login feedback for the shared sign-in page."""
 
