@@ -252,7 +252,7 @@
 
     <div class="panel-body">
         {% if receipt_gaps %}
-            <p>Missing receipts: {{ receipt_gaps|join:', ' }}</p>
+            <p>Missing: receipts {{ receipt_gaps|join:', ' }}</p>
         {% endif %}
 
         {% for row in each_day %}
