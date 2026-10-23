@@ -760,11 +760,11 @@ def reports_export(request):
 
 
 def audit_log(request):
-    if not settings.SHOW_AUDIT_LOG:
-        raise Http404
     if not is_owner(request.user):
         from django.core.exceptions import PermissionDenied
         raise PermissionDenied("Owner access is required.")
+    if not settings.SHOW_AUDIT_LOG:
+        raise Http404
     selected_date = request.GET.get("date", "")
     selected_action = request.GET.get("action", "")
 
