@@ -1,17 +1,161 @@
+
 {% load static %}
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{% block title %}{{ CLINIC_NAME }}{% endblock %}</title><link rel="stylesheet" href="{% static 'css/app.css' %}"></head>
-<body><div class="app-shell"><aside class="sidebar">
-  <a class="brand" href="{% url 'dashboard' %}"><span class="brand-mark">+</span><span>{{ CLINIC_NAME }}</span></a>
-  <nav class="nav" aria-label="Main navigation">
-    <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}"><span class="nav-icon">⌘</span>Dashboard</a>
-    <a id="new-patient-link" class="nav-link {% if request.resolver_match.url_name == 'visit_new' %}active{% endif %}" href="{% url 'visit_new' %}"><span class="nav-icon">+</span>New patient <kbd>F2</kbd></a>
-    <a class="nav-link {% if request.resolver_match.url_name == 'patient_list' or request.resolver_match.url_name == 'patient_detail' %}active{% endif %}" href="{% url 'patient_list' %}"><span class="nav-icon">♙</span>Patients</a>
-    <a class="nav-link {% if request.resolver_match.url_name == 'day_close' %}active{% endif %}" href="{% url 'day_close' %}"><span class="nav-icon">✓</span>Day close</a>
-    {% if is_owner %}<div class="nav-group">Administration</div><a class="nav-sub {% if request.resolver_match.url_name == 'reports' or request.resolver_match.url_name == 'report_day' %}active{% endif %}" href="{% url 'reports' %}">Reports</a><a class="nav-sub {% if request.resolver_match.url_name == 'user_list' or request.resolver_match.url_name == 'user_new' %}active{% endif %}" href="{% url 'user_list' %}">Users</a>{% endif %}
-    <a class="nav-sub {% if request.resolver_match.url_name == 'account_password' %}active{% endif %}" href="{% url 'account_password' %}">My password</a>
-  </nav>
-  <div class="sidebar-user"><span class="avatar">{{ user.get_username|slice:':2'|upper }}</span><span><strong>{{ user.get_full_name|default:user.get_username }}</strong><small>{% if is_owner %}Owner{% else %}Receptionist{% endif %}</small></span></div>
-</aside><section class="shell"><header class="topbar"><div class="topbar-crumb">{% block topbar %}Clinic reception{% endblock %}</div><div class="topbar-user"><span>{{ user.get_username }}</span><span class="avatar avatar-small">{{ user.get_username|slice:':2'|upper }}</span><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="logout" type="submit">Log out</button></form></div></header><main>
-{% if messages %}<ul class="messages">{% for message in messages %}<li class="message {{ message.tags }}">{{ message }}</li>{% endfor %}</ul>{% endif %}{% block content %}{% endblock %}
-</main></section></div><script>document.addEventListener("contextmenu",function(e){e.preventDefault()});document.addEventListener("keydown",function(e){if(e.key==="F2"){e.preventDefault();const n=document.getElementById("new-patient-link");if(n)n.click()}});</script></body></html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>{% block title %}{{ CLINIC_NAME }}{% endblock %}</title>
+
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+
+<body>
+    <div class="app-shell">
+
+        <aside class="sidebar">
+            <a class="brand" href="{% url 'dashboard' %}">
+                <img
+                    class="brand-logo"
+                    src="{% static 'images/st-pius-logo.png' %}"
+                    alt="St. Pius Dispensary logo"
+                >
+                <span class="brand-name">{{ CLINIC_NAME }}</span>
+            </a>
+
+            <nav class="nav" aria-label="Main navigation">
+                <a
+                    class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+                    href="{% url 'dashboard' %}"
+                >
+                    <span class="nav-icon">⌘</span>
+                    Dashboard
+                </a>
+
+                <a
+                    id="new-patient-link"
+                    class="nav-link {% if request.resolver_match.url_name == 'visit_new' %}active{% endif %}"
+                    href="{% url 'visit_new' %}"
+                >
+                    <span class="nav-icon">+</span>
+                    New patient
+                    <kbd>F2</kbd>
+                </a>
+
+                <a
+                    class="nav-link {% if request.resolver_match.url_name == 'patient_list' or request.resolver_match.url_name == 'patient_detail' %}active{% endif %}"
+                    href="{% url 'patient_list' %}"
+                >
+                    <span class="nav-icon">♙</span>
+                    Patients
+                </a>
+
+                <a
+                    class="nav-link {% if request.resolver_match.url_name == 'day_close' %}active{% endif %}"
+                    href="{% url 'day_close' %}"
+                >
+                    <span class="nav-icon">✓</span>
+                    Day close
+                </a>
+
+                {% if is_owner %}
+                    <div class="nav-group">Administration</div>
+
+                    <a
+                        class="nav-sub {% if request.resolver_match.url_name == 'reports' or request.resolver_match.url_name == 'report_day' %}active{% endif %}"
+                        href="{% url 'reports' %}"
+                    >
+                        Reports
+                    </a>
+
+                    <a
+                        class="nav-sub {% if request.resolver_match.url_name == 'user_list' or request.resolver_match.url_name == 'user_new' %}active{% endif %}"
+                        href="{% url 'user_list' %}"
+                    >
+                        Users
+                    </a>
+                {% endif %}
+
+                <a
+                    class="nav-sub {% if request.resolver_match.url_name == 'account_password' %}active{% endif %}"
+                    href="{% url 'account_password' %}"
+                >
+                    My password
+                </a>
+            </nav>
+
+            <div class="sidebar-user">
+                <span class="avatar">
+                    {{ user.get_username|slice:':2'|upper }}
+                </span>
+
+                <span>
+                    <strong>
+                        {{ user.get_full_name|default:user.get_username }}
+                    </strong>
+                    <small>
+                        {% if is_owner %}Owner{% else %}Receptionist{% endif %}
+                    </small>
+                </span>
+            </div>
+        </aside>
+
+        <section class="shell">
+            <header class="topbar">
+                <div class="topbar-crumb">
+                    {% block topbar %}Clinic reception{% endblock %}
+                </div>
+
+                <div class="topbar-user">
+                    <span>{{ user.get_username }}</span>
+
+                    <span class="avatar avatar-small">
+                        {{ user.get_username|slice:':2'|upper }}
+                    </span>
+
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button class="logout" type="submit">
+                            Log out
+                        </button>
+                    </form>
+                </div>
+            </header>
+
+            <main>
+                {% if messages %}
+                    <ul class="messages">
+                        {% for message in messages %}
+                            <li class="message {{ message.tags }}">
+                                {{ message }}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+
+                {% block content %}{% endblock %}
+            </main>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener("contextmenu", function (event) {
+            event.preventDefault();
+        });
+
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "F2") {
+                event.preventDefault();
+
+                const newPatientLink =
+                    document.getElementById("new-patient-link");
+
+                if (newPatientLink) {
+                    newPatientLink.click();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
