@@ -1,163 +1,452 @@
-
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
     <title>Sign in - {{ CLINIC_NAME }}</title>
 
-    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=2">
+    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=3">
 
     <style>
+        :root {
+            --navy: #10294f;
+            --blue: #2168f5;
+            --muted: #6f829f;
+            --border: #c9dcf7;
+        }
+
+        * { box-sizing: border-box; }
+
         body.auth-page {
-            display: grid;
-            place-items: center;
-            min-width: 0;
             min-height: 100vh;
             margin: 0;
-            padding: 20px 14px;
-            box-sizing: border-box;
+            padding: clamp(18px, 3vw, 42px);
+            display: grid;
+            place-items: center;
+            overflow-x: hidden;
+            color: var(--navy);
+            font-family: Inter, "Segoe UI", Arial, sans-serif;
+            background-color: #eaf5ff;
+            background-image:
+                linear-gradient(
+                    90deg,
+                    rgba(235, 247, 255, 0.25),
+                    rgba(239, 248, 255, 0.20)
+                ),
+                url("{% static 'images/login-medical-bg.png' %}");
+            background-position: center;
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
         }
 
-        .auth-card {
-            display: block;
-            width: 100%;
-            max-width: 400px;
-            min-width: 0;
-            margin: auto;
-            padding: 30px;
-            box-sizing: border-box;
-            background: #ffffff;
-            border: 1px solid #dfe7f2;
-            border-radius: 16px;
-            box-shadow: 0 12px 30px rgba(27, 57, 97, 0.09);
-        }
-
-        .login-logo {
-            display: flex;
+        .login-layout {
+            width: min(1280px, 100%);
+            min-height: min(760px, calc(100vh - 64px));
+            display: grid;
+            grid-template-columns: minmax(0, 1.03fr) minmax(420px, .97fr);
             align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 110px;
+            gap: clamp(28px, 4vw, 66px);
+        }
+
+        .login-brand {
+            min-width: 0;
+            padding: 36px clamp(8px, 2vw, 30px);
+            text-align: center;
+            animation: rise .65s ease both;
+        }
+
+        .login-logo-wrap {
+            width: clamp(150px, 17vw, 220px);
+            aspect-ratio: 1;
             margin: 0 auto 20px;
+            display: grid;
+            place-items: center;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 10px 28px rgba(27,73,133,.13);
             overflow: hidden;
         }
 
-        .login-logo img {
-            display: block !important;
-            width: 110px !important;
-            height: 110px !important;
-            max-width: 110px !important;
-            max-height: 110px !important;
-            object-fit: contain !important;
-            flex: 0 0 110px;
+        .login-logo-wrap img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
-        .auth-card h1 {
+        .login-brand h1 {
             margin: 0;
-            font-size: 24px;
-            text-align: center;
+            color: var(--navy);
+            font-size: clamp(32px, 3.6vw, 56px);
+            line-height: 1.1;
+            letter-spacing: -1.7px;
+            font-weight: 800;
             overflow-wrap: anywhere;
         }
 
-        .auth-card p {
-            margin: 8px 0 24px;
-            color: #6f819d;
+        .login-clinic-name {
+            margin: 14px 0 0;
+            color: #075bd4;
+            font-size: clamp(14px, 1.45vw, 21px);
+            font-weight: 800;
+            letter-spacing: clamp(3px, .45vw, 6px);
+        }
+
+        .login-accent {
+            width: 64px;
+            height: 4px;
+            margin: 22px auto 18px;
+            border-radius: 20px;
+            background: linear-gradient(90deg, #18c8d5, #2b79ff);
+        }
+
+        .login-tagline {
+            margin: 0;
+            color: #405b80;
+            font-size: clamp(14px, 1.2vw, 18px);
+            line-height: 1.6;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 570px;
+            justify-self: center;
+            padding: clamp(30px, 4vw, 62px);
+            background: rgba(255,255,255,.93);
+            border: 1px solid rgba(166,201,244,.9);
+            border-radius: 28px;
+            box-shadow: 0 22px 60px rgba(38,85,145,.13), inset 0 1px 0 #fff;
+            animation: rise .75s ease .08s both;
+            backdrop-filter: blur(12px);
+        }
+
+        .login-card h2 {
+            margin: 0;
             text-align: center;
+            color: var(--navy);
+            font-size: clamp(28px, 2.6vw, 39px);
+            font-weight: 800;
+            letter-spacing: -1px;
         }
 
-        .auth-card label {
+        .login-subtitle {
+            margin: 8px 0 38px;
+            color: var(--muted);
+            text-align: center;
+            font-size: clamp(16px, 1.4vw, 21px);
+        }
+
+        .login-card label {
             display: block;
-            margin: 16px 0 6px;
+            margin: 0 0 9px;
+            color: #122b50;
+            font-size: 16px;
+            font-weight: 700;
         }
 
-        .auth-card input {
+        .login-input-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            min-height: 62px;
+            margin-bottom: 28px;
+            border: 1.5px solid var(--border);
+            border-radius: 15px;
+            background: linear-gradient(110deg, #f0f6ff, #edf4ff);
+            transition: border-color .2s, box-shadow .2s, background .2s;
+        }
+
+        .login-input-wrap:focus-within {
+            border-color: #6ba4ff;
+            box-shadow: 0 0 0 4px rgba(42,117,255,.1);
+            background: #f8fbff;
+        }
+
+        .login-field-icon {
+            flex: 0 0 58px;
+            display: grid;
+            place-items: center;
+            color: #4a6385;
+        }
+
+        .login-field-icon svg,
+        .password-toggle svg,
+        .login-submit svg {
+            width: 23px;
+            height: 23px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.9;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .login-input-wrap input {
             display: block;
             width: 100%;
-            box-sizing: border-box;
+            min-width: 0;
+            min-height: 58px;
+            padding: 12px 16px 12px 0;
+            color: #172a43;
+            background: transparent;
+            border: 0;
+            outline: 0;
+            box-shadow: none;
+            font: inherit;
+            font-size: 16px;
         }
 
-        .auth-card button {
-            display: block;
+        .login-input-wrap input:focus {
+            outline: none;
+            box-shadow: none;
+        }
+
+        .password-toggle {
+            flex: 0 0 52px;
+            height: 56px;
+            display: grid;
+            place-items: center;
+            padding: 0;
+            margin: 0 3px 0 0;
+            color: #4a6385;
+            background: transparent;
+            border: 0;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .password-toggle:hover { color: var(--blue); }
+
+        .login-submit {
             width: 100%;
-            margin-top: 24px;
+            min-height: 68px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 13px;
+            margin-top: 10px;
+            padding: 16px 24px;
+            color: #fff;
+            background: linear-gradient(115deg, #2876ff, #1559f5);
+            border: 0;
+            border-radius: 15px;
+            box-shadow: 0 13px 24px rgba(31,99,240,.25);
+            font-size: 20px;
+            font-weight: 750;
+            cursor: pointer;
+            transition: transform .2s, box-shadow .2s;
         }
 
-        .auth-card .message {
+        .login-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 28px rgba(31,99,240,.3);
+        }
+
+        .login-submit:active { transform: translateY(0); }
+
+        .login-card .message {
+            margin: 0 0 18px;
+            padding: 12px 14px;
+            border-radius: 10px;
             overflow-wrap: anywhere;
+            font-size: 14px;
         }
 
-        @media (max-width: 480px) {
-            .auth-card {
-                padding: 24px 20px;
+        .login-card .message.error {
+            color: #9e2020;
+            background: #fff0f0;
+            border: 1px solid #f2c3c3;
+        }
+
+        .login-card .message.success {
+            color: #17613c;
+            background: #edfff4;
+            border: 1px solid #bce9ce;
+        }
+
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 900px) {
+            body.auth-page { padding: 24px 18px; }
+
+            .login-layout {
+                min-height: auto;
+                grid-template-columns: minmax(0, 1fr);
+                gap: 20px;
+                max-width: 560px;
             }
 
-            .login-logo,
-            .login-logo img {
-                height: 90px;
+            .login-brand { padding: 10px 8px 0; }
+            .login-logo-wrap { width: 112px; margin-bottom: 14px; }
+
+            .login-brand h1 {
+                font-size: clamp(29px, 6vw, 42px);
+                letter-spacing: -1px;
             }
 
-            .login-logo img {
-                width: 90px !important;
-                max-width: 90px !important;
-                max-height: 90px !important;
-                flex-basis: 90px;
+            .login-clinic-name {
+                margin-top: 9px;
+                font-size: 13px;
+                letter-spacing: 3px;
+            }
+
+            .login-accent { margin: 13px auto 10px; }
+            .login-tagline { font-size: 14px; }
+
+            .login-card {
+                max-width: 520px;
+                padding: clamp(26px, 5vw, 42px);
+            }
+
+            .login-subtitle { margin-bottom: 28px; }
+        }
+
+        @media (max-width: 420px) {
+            body.auth-page { padding: 16px 12px; }
+            .login-layout { gap: 18px; }
+            .login-logo-wrap { width: 86px; }
+            .login-brand h1 { font-size: 28px; }
+
+            .login-clinic-name {
+                font-size: 11px;
+                letter-spacing: 2.5px;
+            }
+
+            .login-tagline { font-size: 13px; }
+            .login-card { padding: 25px 19px; border-radius: 22px; }
+            .login-card h2 { font-size: 29px; }
+
+            .login-subtitle {
+                font-size: 16px;
+                margin-bottom: 25px;
+            }
+
+            .login-input-wrap { min-height: 56px; margin-bottom: 23px; }
+            .login-input-wrap input { min-height: 52px; font-size: 15px; }
+            .login-field-icon { flex-basis: 48px; }
+            .password-toggle { flex-basis: 44px; height: 50px; }
+            .login-submit { min-height: 60px; font-size: 18px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: .01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: .01ms !important;
             }
         }
     </style>
 </head>
 
 <body class="auth-page">
-
-    <form
-        class="auth-card"
-        method="post"
-        oncontextmenu="return false;"
-    >
-        {% csrf_token %}
-
-        <div class="login-logo">
-            <img
-                src="{% static 'images/st-pius-logo.png' %}"
-                alt="St. Pius Dispensary logo"
-                width="110"
-                height="110"
-                style="width:110px !important;height:110px !important;max-width:110px !important;max-height:110px !important;object-fit:contain !important;"
-            >
-        </div>
-
-        <h1>{{ CLINIC_NAME }}</h1>
-
-        <p>Sign in to the clinic reception workspace.</p>
-
-        {% if form.non_field_errors %}
-            <div class="message error">
-                {{ form.non_field_errors }}
+    <main class="login-layout">
+        <section class="login-brand" aria-label="Clinic information">
+            <div class="login-logo-wrap">
+                <img src="{% static 'images/st-pius-logo.png' %}"
+                     alt="St. Pius Dispensary logo" width="220" height="220">
             </div>
-        {% endif %}
 
-        {% if messages %}
-            {% for message in messages %}
-                <div class="message {{ message.tags }}">
-                    {{ message }}
+            <h1>Clinic Reception</h1>
+            <p class="login-clinic-name">ST. PIUS DISPENSARY</p>
+            <div class="login-accent" aria-hidden="true"></div>
+            <p class="login-tagline">
+                Quality Healthcare · Serving Our Community
+            </p>
+        </section>
+
+        <form class="login-card" method="post" autocomplete="on">
+            {% csrf_token %}
+
+            <h2>Welcome back.</h2>
+            <p class="login-subtitle">Sign in to continue.</p>
+
+            {% if form.non_field_errors %}
+                <div class="message error" role="alert">
+                    {{ form.non_field_errors }}
                 </div>
-            {% endfor %}
-        {% endif %}
+            {% endif %}
 
-        <label for="{{ form.username.id_for_label }}">
-            Username
-        </label>
-        {{ form.username }}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="message {{ message.tags }}" role="status">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
 
-        <label for="{{ form.password.id_for_label }}">
-            Password
-        </label>
-        {{ form.password }}
+            <label for="{{ form.username.id_for_label }}">Username</label>
+            <div class="login-input-wrap">
+                <span class="login-field-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="8" r="4"></circle>
+                        <path d="M4.5 21v-2a7.5 7.5 0 0 1 15 0v2z"></path>
+                    </svg>
+                </span>
+                {{ form.username }}
+            </div>
 
-        <button type="submit">Sign in</button>
-    </form>
+            <label for="{{ form.password.id_for_label }}">Password</label>
+            <div class="login-input-wrap">
+                <span class="login-field-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                        <rect x="4" y="10" width="16" height="11" rx="2"></rect>
+                        <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+                        <path d="M12 14v3"></path>
+                    </svg>
+                </span>
 
+                {{ form.password }}
+
+                <button class="password-toggle" type="button"
+                        id="togglePassword" aria-label="Show password"
+                        aria-pressed="false">
+                    <svg id="eyeIcon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                </button>
+            </div>
+
+            <button class="login-submit" type="submit">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M10 17l5-5-5-5"></path>
+                    <path d="M15 12H3"></path>
+                    <path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"></path>
+                </svg>
+                <span>Sign in</span>
+            </button>
+        </form>
+    </main>
+
+    <script>
+        (() => {
+            const password = document.getElementById("id_password");
+            const toggle = document.getElementById("togglePassword");
+            const icon = document.getElementById("eyeIcon");
+
+            if (!password || !toggle || !icon) return;
+
+            toggle.addEventListener("click", () => {
+                const show = password.type === "password";
+                password.type = show ? "text" : "password";
+
+                toggle.setAttribute(
+                    "aria-label",
+                    show ? "Hide password" : "Show password"
+                );
+                toggle.setAttribute("aria-pressed", String(show));
+
+                icon.innerHTML = show
+                    ? '<path d="M3 3l18 18"></path><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path><path d="M9.9 5.2A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a17.7 17.7 0 0 1-3.1 3.9"></path><path d="M6.2 6.2C3.5 8 2 12 2 12s3.5 7 10 7a10.4 10.4 0 0 0 4-.8"></path>'
+                    : '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle>';
+            });
+        })();
+    </script>
 </body>
 </html>
