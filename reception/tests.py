@@ -1,4 +1,4 @@
-from django.contrib.auth.models import Group, User
+﻿from django.contrib.auth.models import Group, User
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.management import call_command
 from django.db import IntegrityError, connection
@@ -15,7 +15,16 @@ from datetime import timedelta
 from .models import AuditLog, DayClose, Patient, Payment, Service, Setting, Visit
 from .services import next_receipt_no, record_payment, register_reprint
 
-
+@override_settings(
+    STORAGES={
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+)
 class PaymentServiceTests(TestCase):
     def setUp(self):
         self.receptionist = User.objects.create_user("receptionist")
