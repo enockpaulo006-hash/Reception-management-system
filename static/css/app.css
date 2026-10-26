@@ -1159,3 +1159,90 @@ button:hover,
         display: none !important;
     }
 }
+
+/* =========================================================
+   AUDIT LOG
+   ========================================================= */
+
+.audit-filter {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 0;
+    margin-bottom: 22px;
+}
+
+.audit-filter label {
+    flex: 1 1 180px;
+    min-width: 150px;
+    margin: 0;
+}
+
+.audit-filter input,
+.audit-filter select {
+    display: block;
+    width: 100%;
+    margin-top: 7px;
+}
+
+.audit-filter button,
+.audit-filter .button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.audit-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.audit-table {
+    min-width: 650px;
+}
+
+.audit-table th,
+.audit-table td {
+    padding: 14px 16px;
+}
+
+.audit-time {
+    min-width: 145px;
+    white-space: nowrap;
+}
+
+.audit-detail {
+    min-width: 200px;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+}
+
+.audit-table tbody tr:hover {
+    background: var(--surface-soft);
+}
+
+.audit-table .badge {
+    white-space: nowrap;
+}
+
+/* Login form and logo styles preserved from reception CSS */
+.auth-card input {
+    display: block;
+    width: 100%;
+}
+
+.login-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin: 0 auto 20px;
+}
+
+.login-logo img {
+    display: block;
+    width: 110px;
+    height: 110px;
+    max-width: 100%;
+    object-fit: contain;
+}
