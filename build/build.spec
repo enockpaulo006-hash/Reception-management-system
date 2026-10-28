@@ -1,4 +1,6 @@
+
 # Build with: pyinstaller --noconfirm --clean build\build.spec
+
 import os
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
@@ -7,19 +9,28 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 PROJECT_ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
 ICON_PATH = os.path.join(SPECPATH, "app.ico")
 
-# Templates, static assets, migrations, and management commands must be present
-# in the frozen one-directory application.
+
+# Templates, static assets, migrations, and management commands.
 datas = (
     collect_data_files(
         "reception",
-        includes=["templates/**/*", "static/**/*", "migrations/*.py", "management/**/*.py"],
+        includes=[
+            "templates/**/*",
+            "static/**/*",
+            "migrations/*.py",
+            "management/**/*.py",
+        ],
     )
     + collect_data_files("clinic", includes=["*.py"])
 )
 
+
+# Automatically collect project and third-party submodules.
 hiddenimports = (
     collect_submodules("clinic")
     + collect_submodules("reception")
+    + collect_submodules("whitenoise")
+    + collect_submodules("waitress")
     + [
         "django.contrib.admin",
         "django.contrib.auth",
@@ -40,9 +51,12 @@ hiddenimports = (
         "reception.context_processors",
         "reception.signals",
         "whitenoise.middleware",
-        "waitress",
+        "whitenoise.storage",
+        "whitenoise.storage.compressed",
+        "whitenoise.storage.manifest",
     ]
 )
+
 
 a = Analysis(
     [os.path.join(PROJECT_ROOT, "launcher.py")],
@@ -56,7 +70,11 @@ a = Analysis(
     excludes=[],
     noarchive=False,
 )
+
+
 pyz = PYZ(a.pure)
+
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -72,6 +90,8 @@ exe = EXE(
     console=False,
     icon=ICON_PATH if os.path.exists(ICON_PATH) else None,
 )
+
+
 coll = COLLECT(
     exe,
     a.binaries,
