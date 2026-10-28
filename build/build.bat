@@ -2,7 +2,7 @@
 setlocal
 
 set "PROJECT_ROOT=%~dp0.."
-set "PYTHON=%PROJECT_ROOT%\venv\Scripts\python.exe"
+set "PYTHON=%PROJECT_ROOT%\.venv\Scripts\python.exe"
 set "ISCC=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 if not exist "%PYTHON%" (
