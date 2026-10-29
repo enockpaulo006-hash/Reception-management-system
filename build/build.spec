@@ -1,16 +1,27 @@
 
-# Build with: pyinstaller --noconfirm --clean build\build.spec
+# Build with:
+# pyinstaller --noconfirm --clean build\build.spec
 
 import os
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 
+# =========================================================
+# 1. PROJECT PATHS
+# =========================================================
+
 PROJECT_ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
 ICON_PATH = os.path.join(SPECPATH, "app.ico")
 
+STATIC_SOURCE = os.path.join(PROJECT_ROOT, "static")
+STATICFILES_SOURCE = os.path.join(PROJECT_ROOT, "staticfiles")
 
-# Templates, static assets, migrations, and management commands.
+
+# =========================================================
+# 2. APPLICATION DATA FILES
+# =========================================================
+
 datas = (
     collect_data_files(
         "reception",
@@ -25,7 +36,60 @@ datas = (
 )
 
 
-# Automatically collect project and third-party submodules.
+# =========================================================
+# 3. INCLUDE ORIGINAL STATIC FILES
+# =========================================================
+
+if not os.path.isdir(STATIC_SOURCE):
+    raise FileNotFoundError(
+        f"Required static directory not found: {STATIC_SOURCE}"
+    )
+
+for root, _, filenames in os.walk(STATIC_SOURCE):
+    for filename in filenames:
+        source = os.path.join(root, filename)
+        relative_directory = os.path.relpath(root, STATIC_SOURCE)
+
+        destination = (
+            "static"
+            if relative_directory == "."
+            else os.path.join("static", relative_directory)
+        )
+
+        datas.append((source, destination))
+
+
+# =========================================================
+# 4. INCLUDE COLLECTED STATIC FILES AND MANIFEST
+# =========================================================
+
+MANIFEST_PATH = os.path.join(
+    STATICFILES_SOURCE,
+    "staticfiles.json",
+)
+
+if not os.path.isfile(MANIFEST_PATH):
+    raise FileNotFoundError(
+        "Django's staticfiles.json manifest is missing. "
+        "Run manage.py collectstatic --noinput first."
+    )
+
+for root, _, filenames in os.walk(STATICFILES_SOURCE):
+    for filename in filenames:
+        source = os.path.join(root, filename)
+        relative_path = os.path.relpath(source, STATICFILES_SOURCE)
+        destination = os.path.join(
+            "staticfiles",
+            os.path.dirname(relative_path),
+        )
+
+        datas.append((source, destination))
+
+
+# =========================================================
+# 5. HIDDEN IMPORTS
+# =========================================================
+
 hiddenimports = (
     collect_submodules("clinic")
     + collect_submodules("reception")
@@ -58,6 +122,10 @@ hiddenimports = (
 )
 
 
+# =========================================================
+# 6. PYINSTALLER ANALYSIS
+# =========================================================
+
 a = Analysis(
     [os.path.join(PROJECT_ROOT, "launcher.py")],
     pathex=[PROJECT_ROOT],
@@ -72,8 +140,16 @@ a = Analysis(
 )
 
 
+# =========================================================
+# 7. PYTHON BYTECODE ARCHIVE
+# =========================================================
+
 pyz = PYZ(a.pure)
 
+
+# =========================================================
+# 8. EXECUTABLE
+# =========================================================
 
 exe = EXE(
     pyz,
@@ -91,6 +167,10 @@ exe = EXE(
     icon=ICON_PATH if os.path.exists(ICON_PATH) else None,
 )
 
+
+# =========================================================
+# 9. COLLECT DISTRIBUTION FILES
+# =========================================================
 
 coll = COLLECT(
     exe,
