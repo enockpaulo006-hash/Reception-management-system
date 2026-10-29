@@ -5,8 +5,7 @@ from django.core.management.base import BaseCommand
 from reception.models import Service
 
 
-# Official service names and prices in TZS.
-# Existing services are updated by name; unrelated services are preserved.
+# The only approved active services and their prices in TZS.
 SERVICES = [
     ("Consultation fees", "CONSULT", 1000),
     ("Blood slide (BS)", "TEST", 1000),
@@ -33,17 +32,26 @@ SERVICES = [
 
 
 class Command(BaseCommand):
-    help = "Ensure the clinic roles and official services exist."
+    help = (
+        "Synchronize active clinic services with the approved service list."
+    )
 
     def handle(self, *args, **options):
+        # Ensure the required user groups exist.
         Group.objects.get_or_create(name="Owner")
         Group.objects.get_or_create(name="Receptionist")
 
         created_count = 0
         updated_count = 0
+        deactivated_count = 0
 
+        # Create missing services and correct existing approved services.
         for name, kind, price in SERVICES:
-            service = Service.objects.filter(name__iexact=name).first()
+            matches = Service.objects.filter(
+                name__iexact=name
+            ).order_by("id")
+
+            service = matches.first()
 
             if service is None:
                 Service.objects.create(
@@ -53,25 +61,66 @@ class Command(BaseCommand):
                     active=True,
                 )
                 created_count += 1
-            else:
-                changed = (
-                    service.kind != kind
-                    or service.price != price
-                    or not service.active
-                )
+                continue
 
-                if changed:
-                    service.kind = kind
-                    service.price = price
-                    service.active = True
-                    service.save(
-                        update_fields=["kind", "price", "active"]
-                    )
-                    updated_count += 1
+            changed = (
+                service.name != name
+                or service.kind != kind
+                or service.price != price
+                or not service.active
+            )
+
+            if changed:
+                service.name = name
+                service.kind = kind
+                service.price = price
+                service.active = True
+                service.save(
+                    update_fields=[
+                        "name",
+                        "kind",
+                        "price",
+                        "active",
+                    ]
+                )
+                updated_count += 1
+
+            # Deactivate duplicate records with the same approved name.
+            for duplicate in matches.exclude(pk=service.pk):
+                if duplicate.active:
+                    duplicate.active = False
+                    duplicate.save(update_fields=["active"])
+                    deactivated_count += 1
+
+        # Deactivate every other service.
+        # Historical records are preserved; nothing is deleted.
+        approved_names = {
+            name.casefold() for name, _, _ in SERVICES
+        }
+
+        for service in Service.objects.filter(active=True):
+            if service.name.casefold() not in approved_names:
+                service.active = False
+                service.save(update_fields=["active"])
+                deactivated_count += 1
+
+        active_count = Service.objects.filter(active=True).count()
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Service setup complete. Created: {created_count}; "
-                f"updated: {updated_count}. Other services were preserved."
+                "Service synchronization complete. "
+                f"Created: {created_count}; "
+                f"updated: {updated_count}; "
+                f"deactivated: {deactivated_count}; "
+                f"active services: {active_count}."
             )
         )
+
+        if active_count != len(SERVICES):
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Expected {len(SERVICES)} active services, "
+                    f"but found {active_count}. "
+                    "Check for duplicate service records."
+                )
+            )
