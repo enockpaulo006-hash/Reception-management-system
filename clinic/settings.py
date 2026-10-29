@@ -1,5 +1,6 @@
 
 import os
+import sys
 from pathlib import Path
 
 
@@ -7,16 +8,22 @@ from pathlib import Path
 # 1. PROJECT PATHS
 # =========================================================
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+if getattr(sys, "frozen", False):
+    # PyInstaller's one-folder bundle directory.
+    BASE_DIR = Path(sys._MEIPASS)
+else:
+    BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # =========================================================
 # 2. SECURITY AND DEBUG SETTINGS
 # =========================================================
 
-SECRET_KEY = 'django-insecure-wj&-dt7=_d!7g=tud9j-@0x+lml)_49rxvjmawu=ry8wo+s*v#'
+SECRET_KEY = (
+    'django-insecure-wj&-dt7=_d!7g=tud9j-@0x+lml)_49rxvjmawu=ry8wo+s*v#'
+)
 
-DEBUG = True
+DEBUG = False if getattr(sys, "frozen", False) else True
 
 ALLOWED_HOSTS = [
     '127.0.0.1',
@@ -86,20 +93,20 @@ WSGI_APPLICATION = 'clinic.wsgi.application'
 # =========================================================
 
 if os.environ.get('CLINIC_PRODUCTION') == '1':
-    DATA_DIR = r'C:\ProgramData\ClinicReception\data'
-    LOG_DIR = r'C:\ProgramData\ClinicReception\logs'
+    DATA_DIR = Path(r'C:\ProgramData\ClinicReception\data')
+    LOG_DIR = Path(r'C:\ProgramData\ClinicReception\logs')
 
-    os.makedirs(DATA_DIR, exist_ok=True)
-    os.makedirs(LOG_DIR, exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-    DB_PATH = os.path.join(DATA_DIR, 'db.sqlite3')
+    DB_PATH = DATA_DIR / 'db.sqlite3'
 else:
     DB_PATH = BASE_DIR / 'db.sqlite3'
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': DB_PATH,
+        'NAME': str(DB_PATH),
     }
 }
 
@@ -141,7 +148,6 @@ AUTH_PASSWORD_VALIDATORS = [
 # =========================================================
 
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'Africa/Dar_es_Salaam'
 
 USE_I18N = True
@@ -154,12 +160,10 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-# Source folder containing app.css and the dispensary logo.
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 
-# Destination used by collectstatic in production.
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 
@@ -167,8 +171,6 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # 10. WHITE NOISE STATIC FILE STORAGE
 # =========================================================
 
-# Keep the existing WhiteNoise middleware.
-# Use compressed static files with manifest-based names.
 STORAGES = {
     'default': {
         'BACKEND': 'django.core.files.storage.FileSystemStorage',
@@ -203,8 +205,9 @@ if os.environ.get('CLINIC_PRODUCTION') == '1':
         'handlers': {
             'clinic_file': {
                 'class': 'logging.FileHandler',
-                'filename': os.path.join(LOG_DIR, 'errors.log'),
+                'filename': str(LOG_DIR / 'errors.log'),
                 'level': 'ERROR',
+                'encoding': 'utf-8',
             },
         },
         'loggers': {
