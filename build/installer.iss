@@ -1,4 +1,4 @@
-#define AppName "Clinic Reception"
+﻿#define AppName "Clinic Reception"
 #define AppVersion "1.0.0"
 #define AppPublisher "Clinic Reception"
 #define AppExeName "ClinicReception.exe"
@@ -33,8 +33,8 @@ Name: "{commonappdata}\ClinicReception\data"; Flags: uninsneveruninstall
 Name: "{commonappdata}\ClinicReception\backup"; Flags: uninsneveruninstall
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\_internal\app.ico"; IconIndex: 0
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\_internal\app.ico"; IconIndex: 0; Tasks: desktopicon
 
 [Run]
 ; The packaged launcher performs the backup when invoked with --backup.
@@ -48,3 +48,4 @@ function InitializeSetup(): Boolean;
 begin
   Result := True;
 end;
+
