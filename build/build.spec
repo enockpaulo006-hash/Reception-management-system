@@ -1,4 +1,4 @@
-
+﻿
 # Build with:
 # pyinstaller --noconfirm --clean build\build.spec
 
@@ -22,7 +22,7 @@ STATICFILES_SOURCE = os.path.join(PROJECT_ROOT, "staticfiles")
 # 2. APPLICATION DATA FILES
 # =========================================================
 
-datas = (
+datas = list((
     collect_data_files(
         "reception",
         includes=[
@@ -33,7 +33,14 @@ datas = (
         ],
     )
     + collect_data_files("clinic", includes=["*.py"])
-)
+))
+# Include the application icon in the packaged application.
+if not os.path.isfile(ICON_PATH):
+    raise FileNotFoundError(
+        f"Application icon not found: {ICON_PATH}"
+    )
+
+datas.append((ICON_PATH, "."))
 
 
 # =========================================================
@@ -181,3 +188,5 @@ coll = COLLECT(
     upx=True,
     name="ClinicReception",
 )
+
+
